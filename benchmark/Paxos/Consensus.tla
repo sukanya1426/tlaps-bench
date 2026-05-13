@@ -27,30 +27,8 @@ Inv == Cardinality(chosen) <= 1
     \* /\ Cardinality(chosen) <= 1
 
 THEOREM Spec => []Inv
-<1>1. Init => Inv
-  BY DEF Init, Inv
-  (*
-  <2> SUFFICES ASSUME Init
-               PROVE  Inv
-    OBVIOUS
-  <2> QED
-    BY DEF Init, Inv
-  *)
-  
-<1>2. Inv /\ [Next]_chosen => Inv'
-  <2> SUFFICES ASSUME Inv,
-                      [Next]_chosen
-               PROVE  Inv'
-    OBVIOUS
-  <2>1. CASE Next
-    BY <2>1 DEF Inv, Next
-  <2>2. CASE UNCHANGED chosen
-    BY <2>2 DEF Inv, Next
-  <2>3. QED
-    BY <2>1, <2>2
-  
-<1>3. QED
-  BY <1>1, <1>2, PTL DEF Spec
+  PROOF OMITTED
+
 =============================================================================
 \* Modification History
 \* Last modified Tue Jul 16 13:47:23 CST 2019 by hengxin

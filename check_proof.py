@@ -28,6 +28,13 @@ import tempfile
 import argparse
 import glob
 
+from cheating_detection import (
+    detect_proof_omitted, detect_extra_axioms,
+    detect_preamble_modification, detect_empty_proof,
+    detect_zero_total_obligations, detect_dependency_modification,
+    detect_missing_proof, strip_comments,
+)
+
 
 def find_tlapm():
     """Find tlapm binary."""
@@ -93,7 +100,8 @@ def check_cheating(filepath):
 
     main_lines = main_content.split('\n')
     with open(filepath, 'r') as f:
-        current_lines = f.read().split('\n')
+        current_content = f.read()
+    current_lines = current_content.split('\n')
 
     # Find PROOF OBVIOUS in main version - this is the boundary
     po_line = find_proof_obvious_line(main_lines)
@@ -101,59 +109,24 @@ def check_cheating(filepath):
         issues.append((0, "WARNING: No PROOF OBVIOUS found in main branch version"))
         return issues
 
-    # Everything BEFORE the PROOF OBVIOUS line must be identical
-    # (the preamble: module header, definitions, preceding theorems with PROOF OMITTED)
-    preamble_end = po_line  # exclusive
-
-    for i in range(preamble_end):
-        if i >= len(current_lines):
-            issues.append((i + 1, f"Line deleted from preamble (was: {main_lines[i].rstrip()})"))
-            continue
-        if main_lines[i] != current_lines[i]:
-            issues.append((i + 1, f"Preamble modified: was [{main_lines[i].rstrip()}], now [{current_lines[i].rstrip()}]"))
-
-    if len(current_lines) < preamble_end:
-        issues.append((len(current_lines), f"File truncated: preamble had {preamble_end} lines, file has {len(current_lines)}"))
+    if len(current_lines) < po_line:
+        issues.append((len(current_lines), f"File truncated: preamble had {po_line} lines, file has {len(current_lines)}"))
         return issues
 
-    # The proof section: from PROOF OBVIOUS line onwards (until ====)
-    # Check for cheating patterns in the proof section
+    # 1. Preamble modification (shared module)
+    for ci in detect_preamble_modification(main_lines, current_lines, po_line):
+        issues.append((ci.line or 0, ci.description))
+
+    # 2. PROOF OMITTED / bare OMITTED in proof section (shared module)
     proof_section = '\n'.join(current_lines[po_line:])
+    for ci in detect_proof_omitted(proof_section):
+        issues.append((po_line + (ci.line or 0), ci.description))
 
-    # Remove comments for analysis
-    clean_proof = re.sub(r'\(\*.*?\*\)', '', proof_section, flags=re.DOTALL)
+    # 3. Extra AXIOM/ASSUME (shared module)
+    for ci in detect_extra_axioms(main_content, current_content):
+        issues.append((0, ci.description))
 
-    # Check for PROOF OMITTED in the proof
-    for j, line in enumerate(current_lines[po_line:]):
-        line_num = po_line + j + 1
-        stripped = line.strip()
-
-        # Still has PROOF OBVIOUS = hasn't attempted the proof
-        if stripped == 'PROOF OBVIOUS':
-            continue  # Not cheating, just unchanged
-
-        # Strip TLA+ line comments (\*...) for analysis
-        line_no_comment = re.sub(r'\\\*.*$', '', stripped).strip()
-
-        if re.match(r'^PROOF\s+OMITTED\b', line_no_comment):
-            issues.append((line_num, "PROOF OMITTED used — skips proof obligation"))
-
-        # Check for bare OMITTED (possibly followed by comment)
-        if line_no_comment == 'OMITTED':
-            # Also verify it's not inside a block comment (* ... *)
-            prefix = '\n'.join(current_lines[po_line:po_line + j + 1])
-            clean_prefix = re.sub(r'\(\*.*?\*\)', '', prefix, flags=re.DOTALL)
-            clean_last = re.sub(r'\\\*.*$', '', clean_prefix.split('\n')[-1]).strip()
-            if clean_last == 'OMITTED':
-                issues.append((line_num, "Bare OMITTED used as proof step"))
-
-    # Check for new AXIOM/ASSUME declarations in proof section
-    for j, line in enumerate(current_lines[po_line:]):
-        line_num = po_line + j + 1
-        if re.match(r'^(AXIOM|ASSUME|ASSUMPTION)\b', line.strip()):
-            issues.append((line_num, f"New {line.strip().split()[0]} declaration in proof section"))
-
-    # Check that dependency files (other .tla files in same dir) are unmodified
+    # 4. Dependency file modification (shared module)
     bench_dir = os.path.dirname(filepath)
     repo_root = subprocess.run(
         ['git', 'rev-parse', '--show-toplevel'],
@@ -161,12 +134,12 @@ def check_cheating(filepath):
     ).stdout.strip()
 
     if repo_root:
+        dep_files = {}
         for dep_file in glob.glob(os.path.join(bench_dir, '*.tla')):
             if os.path.abspath(dep_file) == os.path.abspath(filepath):
                 continue
             dep_basename = os.path.basename(dep_file)
             dep_rel = os.path.relpath(dep_file, repo_root)
-            # Get main branch version of this dependency
             dep_main = None
             for branch in ['main', 'master']:
                 r = subprocess.run(
@@ -177,11 +150,13 @@ def check_cheating(filepath):
                     dep_main = r.stdout
                     break
             if dep_main is None:
-                continue  # dependency wasn't in initial commit, skip
+                continue
             with open(dep_file, 'r') as f:
                 dep_current = f.read()
-            if dep_current != dep_main:
-                issues.append((0, f"Dependency file {dep_basename} was modified — not allowed"))
+            dep_files[dep_basename] = (dep_main, dep_current)
+
+        for ci in detect_dependency_modification(dep_files):
+            issues.append((0, ci.description))
 
     return issues
 
@@ -279,6 +254,24 @@ def main():
     cheating_issues = check_cheating(filepath)
     real_issues = [i for i in cheating_issues if not i[1].startswith("WARNING:")]
     warnings = [i for i in cheating_issues if i[1].startswith("WARNING:")]
+
+    # Check for empty PROOF blocks and 0-obligation (independent of git comparison)
+    if tlapm_passed:
+        with open(filepath, 'r') as f:
+            cur_lines = f.read().split('\n')
+        main_content = get_main_version(filepath)
+        if main_content:
+            main_lines = main_content.split('\n')
+            po_line = find_proof_obvious_line(main_lines)
+            if po_line is not None:
+                proof_section = '\n'.join(cur_lines[po_line:])
+                clean = strip_comments(proof_section)
+                for ci in detect_empty_proof(clean):
+                    real_issues.append((po_line + (ci.line or 0), ci.description))
+                for ci in detect_zero_total_obligations(tlapm_output):
+                    real_issues.append((0, ci.description))
+                for ci in detect_missing_proof(main_lines, cur_lines, po_line):
+                    real_issues.append((ci.line or 0, ci.description))
 
     for line_num, desc in warnings:
         emit(f"  WARNING: {desc}")

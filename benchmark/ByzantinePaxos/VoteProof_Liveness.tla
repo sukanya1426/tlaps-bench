@@ -401,7 +401,8 @@ VInv3 ==  \A a1, a2 \in Acceptor, b \in Ballot, v1, v2 \in Value :
 (* needed for proving safety, only for liveness.                           *)
 (***************************************************************************)
 THEOREM VInv3 => VInv1
-BY DEF VInv1, VInv3
+  PROOF OMITTED
+
 -----------------------------------------------------------------------------
 (***************************************************************************)
 (* The following lemma proves that SafeAt(b, v) implies that no value      *)
@@ -744,55 +745,6 @@ LEMMA EventuallyAlwaysForall ==
         ASSUME NEW CONSTANT S, IsFiniteSet(S),
                NEW TEMPORAL P(_)
         PROVE  (\A s \in S : <>[]P(s)) => <>[](\A s \in S : P(s))
-(*******
-<1> DEFINE Hyp == \A s \in S : <>[]P(s)
-           Q(T) == \A s \in S \ T : []P(s)
-           LT  == ProperSubsetRel(S)
-<1>1. Hyp => \E T \in SUBSET S : Q(T)
-  <2>1. Hyp => Q(S)
-  <2>2. QED
-    BY <2>1
-<1>2. Hyp => \A T \in SUBSET S : 
-                Q(T) ~> (Q({}) \/ \E R \in SUBSET S : <<R, T>> \in LT /\ Q(R))
-  <2>1 SUFFICES ASSUME NEW T \in SUBSET S
-                PROVE  Hyp => 
-                         (Q(T) ~> (Q({}) \/ 
-                                     \E R \in SUBSET S : <<R, T>> \in LT /\ Q(R)))
-    OBVIOUS
-  <2>2. CASE T # {}
-    <3>1. PICK s \in T : TRUE
-      BY <2>2
-    <3>1a. s \in S
-      OBVIOUS
-    <3> DEFINE R == T \ {s}
-    <3>2. (<<R, T>> \in LT) /\ (S \ R = (S \ T) \cup {s})
-      BY DEF ProperSubsetRel
-    <3>3. Hyp => <>[]P(s)
-      BY s \in S
-    <3>4. Q(T) <=> []Q(T)
-      BY AlwaysForall (* PTL *)
-    <3>5. <>[]P(s) => [](Q(T) => <>(Q(T) /\ []P(s)))
-      BY <3>4 (* PTL *)
-    <3>6. Q(T) /\ []P(s) <=> Q(R)
-      BY <3>2
-    <3>7. Hyp => (Q(T) ~> Q(R))
-      BY <3>3, <3>5, <3>6 (* PTL *)
-    <3>8. QED
-      BY <3>7, <3>2 (* PTL *)
-  <2>3. CASE T = {}   
-    OBVIOUS (* PTL, which implies A ~> A *)
-  <2>4. QED
-    BY <2>2, <2>3
-<1>3. (\A s \in S : <>[]P(s)) => (\E T \in SUBSET S : Q(T)) ~> Q({})
-  BY <1>2, SubsetWellFounded, LatticeRule 
-<1>4. <> Q({})
-  BY <1>1, <1>3 (* PTL *)
-<1>5. QED
-  <2>1. Q({}) <=> [](\A s \in S : P(s))
-    BY AlwaysForall
-  <2>2. QED
-    BY <1>4, <2>1
-*****)
 PROOF OMITTED
 -----------------------------------------------------------------------------
 (***************************************************************************)

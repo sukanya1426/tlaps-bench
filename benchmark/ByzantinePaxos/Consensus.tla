@@ -217,26 +217,8 @@ LEMMA EnabledDef ==
   PROOF OMITTED
 
 THEOREM LiveSpec => Success
-<1>1. []Inv /\ [][Next]_vars /\ WF_vars(Next) => (chosen = {} ~> chosen # {})
-  <2>1. SUFFICES [][Next]_vars /\ WF_vars(Next) => ((Inv /\ chosen = {}) ~> chosen # {})
-    \* OBVIOUS (* PTL *)
-    PROOF OMITTED
-  <2>2. (Inv /\ (chosen = {})) /\ [Next]_vars => ((Inv' /\ (chosen' = {})) \/ chosen' # {})
-    BY InductiveInvariance
-  <2>3. (Inv /\ (chosen = {})) /\ <<Next>>_vars => (chosen' # {})
-    BY DEF Inv, Next, vars
-  <2>4. (Inv /\ (chosen = {})) => ENABLED <<Next>>_vars
-\*     BY EnabledDef DEF Inv
-    PROOF OMITTED
-  <2>5. QED
-\*     BY <2>2, <2>3, <2>4, RuleWF1
-    PROOF OMITTED
-<1>2. (chosen = {} ~> chosen # {}) => ((chosen = {}) => <>(chosen # {}))
-\*   OBVIOUS (* PTL *)
   PROOF OMITTED
-<1>3. QED
-\*   BY Invariance, <1>1, <1>2 DEF LiveSpec, Spec, Init, Success (* PTL *)
-  PROOF OMITTED
+
 -----------------------------------------------------------------------------
 (***************************************************************************)
 (* The following theorem is used in the refinement proof in module         *)

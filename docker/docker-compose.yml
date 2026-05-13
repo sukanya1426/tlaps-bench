@@ -6,9 +6,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    # NET_ADMIN needed for iptables firewall setup in entrypoint
+    # NET_ADMIN for iptables firewall, LINUX_IMMUTABLE for chattr +i on tlapm
     cap_add:
       - NET_ADMIN
+      - LINUX_IMMUTABLE
     environment:
       # Pass API keys at runtime (never baked into image)
       # For OpenAI: set OPENAI_API_KEY in host env or .env file
@@ -16,16 +17,21 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
       - AZURE_OPENAI_HOST=${AZURE_OPENAI_HOST:-}
+      - HOST_UID=${HOST_UID:-1000}
+      - HOST_GID=${HOST_GID:-1000}
     volumes:
       # Benchmark files (read-only)
       - ../benchmark:/benchmark:ro
-      # Scripts (read-only)
-      - ../check_proof.py:/scripts/check_proof.py:ro
+      # Scripts — checker as binary (not readable source), runner as source
+      - ../check_proof_bin:/scripts/check_proof_bin:ro
       - ../run_codex_benchmark.py:/scripts/run_codex_benchmark.py:ro
       # Optional: custom codex config (for Azure users etc.)
-      # Uncomment and point to your config:
-      # - ./codex-config.toml:/mnt/codex-config.toml:ro
+      - ./codex-config.toml:/mnt/codex-config.toml:ro
       # Results output
-      - ../codex_results:/results
+      - ../results:/result
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     # Entrypoint sets up iptables whitelist (only OpenAI/Azure API allowed)
     # then drops to unprivileged 'bench' user via gosu

@@ -266,3 +266,10 @@ tags
 .tlacache/
 __pycache__/
 *.result
+results/
+benchmark_report.md
+docker/codex-config.toml
+check_proof.build/
+check_proof.dist/
+check_proof_bin
+results_codex_intermediate/

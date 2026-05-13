@@ -26,11 +26,16 @@ RUN curl -fsSL -o /tmp/tlaps.bin \
     && rm /tmp/tlaps.bin \
     && rm -rf /opt/tlapm15/lib/tlaps/examples
 
+# Lock down tlapm: prevent AI from tampering with library files
+# Remove write permission — bench user cannot restore (not owner, no sudo)
+# chattr +i is applied at container start in entrypoint.sh (needs CAP_LINUX_IMMUTABLE)
+RUN chmod -R a-w /opt/tlapm15
+
 # Remove sudo
 RUN apt-get purge -y sudo 2>/dev/null; rm -f /usr/bin/sudo /usr/sbin/sudo; true
 
-# Create unprivileged user
-RUN useradd -m -s /bin/bash bench
+# Create unprivileged user (remove default ubuntu user first to free UID 1000)
+RUN userdel -r ubuntu 2>/dev/null || true; useradd -m -s /bin/bash -u 1000 bench
 
 # Copy entrypoint
 COPY entrypoint.sh /entrypoint.sh

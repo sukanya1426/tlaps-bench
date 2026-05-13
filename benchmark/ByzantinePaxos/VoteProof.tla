@@ -401,7 +401,8 @@ VInv3 ==  \A a1, a2 \in Acceptor, b \in Ballot, v1, v2 \in Value :
 (* needed for proving safety, only for liveness.                           *)
 (***************************************************************************)
 THEOREM VInv3 => VInv1
-BY DEF VInv1, VInv3
+  PROOF OMITTED
+
 -----------------------------------------------------------------------------
 (***************************************************************************)
 (* The following lemma proves that SafeAt(b, v) implies that no value      *)

@@ -5,7 +5,7 @@ Run Codex CLI on TLAPS benchmarks to attempt automated proof writing.
 For each benchmark:
 1. Creates an isolated workspace (fresh git repo with only benchmark files)
 2. Runs codex exec with a proof-writing prompt
-3. Validates the result with check_proof.py
+3. Validates the result with check_proof (binary)
 4. Saves all outputs
 
 Usage:
@@ -29,8 +29,14 @@ from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-BENCHMARK_DIR = os.path.join(SCRIPT_DIR, 'benchmark')
-CHECK_PROOF_SCRIPT = os.path.join(SCRIPT_DIR, 'check_proof.py')
+
+# In Docker: benchmark at /benchmark, scripts at /scripts
+# On host: both relative to SCRIPT_DIR
+if os.path.isdir('/benchmark'):
+    BENCHMARK_DIR = '/benchmark'
+else:
+    BENCHMARK_DIR = os.path.join(SCRIPT_DIR, 'benchmark')
+CHECK_PROOF_SCRIPT = os.path.join(SCRIPT_DIR, 'check_proof_bin')
 
 # Persistent tlapm location — use /opt/tlapm15 in docker, ~/.tlapm15 on host
 TLAPM_PERSISTENT = '/opt/tlapm15' if os.path.isdir('/opt/tlapm15') else os.path.expanduser('~/.tlapm15')
@@ -170,13 +176,19 @@ def update_summary(results, output_dir, total_benchmarks):
         lines.append("")
 
         lines.append("## Details\n")
-        lines.append("| Benchmark | Verdict | Time | Tokens (in/out) | Notes |")
-        lines.append("|-----------|---------|------|-----------------|-------|")
+        lines.append("| Benchmark | Verdict | Time | Obligations | Tokens (in/out) | Notes |")
+        lines.append("|-----------|---------|------|-------------|-----------------|-------|")
         for r in sorted(results, key=lambda x: x['benchmark']):
             icon = {'PASS': '✅', 'FAIL': '❌', 'CHEATING': '⚠️', 'TIMEOUT': '⏱️', 'ERROR': '💥'}.get(r['check_verdict'], '❓')
             notes = r.get('error', '')
             tokens = f"{r.get('input_tokens', 0):,}/{r.get('output_tokens', 0):,}"
-            lines.append(f"| `{r['benchmark']}` | {icon} {r['check_verdict']} | {r['time_secs']:.0f}s | {tokens} | {notes} |")
+            if 'obligations' in r:
+                obs = str(r['obligations'])
+            elif 'obligations_failed' in r:
+                obs = f"{r['obligations_failed']}/{r['obligations_total']} failed"
+            else:
+                obs = ''
+            lines.append(f"| `{r['benchmark']}` | {icon} {r['check_verdict']} | {r['time_secs']:.0f}s | {obs} | {tokens} | {notes} |")
         lines.append("")
 
         report = '\n'.join(lines)
@@ -193,7 +205,7 @@ def build_prompt(benchmark_basename):
     name_no_ext = os.path.splitext(benchmark_basename)[0]
     tlapm_path = TLAPM_PERSISTENT
     return f"""\
-The file {benchmark_basename} contains a TLA+ theorem that cannot be verified by tlapm (the TLA+ Proof System) yet. The last theorem in the file has `PROOF OBVIOUS` as a placeholder proof that will fail. Preceding theorems have `PROOF OMITTED` which means they are admitted and available as lemmas. Please replace `PROOF OBVIOUS` with a complete, valid TLAPS proof so that tlapm can successfully verify it. The tlapm standard library is at {tlapm_path}/lib/tlaps. You should KEEP editing your proof until tlapm shows there is no error — do NOT give up or stop early. If a proof attempt fails, try a different proof strategy. Keep iterating until `python3 check_proof.py {benchmark_basename}` reports PASS. You should NOT change any module header, operator definitions, CONSTANT or VARIABLE declarations, ASSUME/ASSUMPTION declarations, or THEOREM/LEMMA statements that appear above `PROOF OBVIOUS`; you should NOT change any preceding `PROOF OMITTED` proofs. You should NEVER use `PROOF OMITTED` or bare `OMITTED` in your proof. You are also NOT allowed to introduce new top-level AXIOM, ASSUME, ASSUMPTION, CONSTANT, or VARIABLE declarations. You should NEVER weaken theorem statements or add extra hypotheses. You can run tlapm directly: `{tlapm_path}/bin/tlapm -I {tlapm_path}/lib/tlaps {benchmark_basename}`. Before you are done, MAKE SURE to run `python3 check_proof.py {benchmark_basename}` to double check whether you have made any illegal changes to {benchmark_basename} (fix those if you did). IMPORTANT: Do NOT browse or fetch any external websites — network access is disabled. Do NOT look for example proof files or solutions outside the current working directory. You must write the proof entirely based on your own knowledge of TLA+ and TLAPS.\
+The file {benchmark_basename} contains a TLA+ theorem that cannot be verified by tlapm (the TLA+ Proof System) yet. The last theorem in the file has `PROOF OBVIOUS` as a placeholder proof that will fail. Preceding theorems have `PROOF OMITTED` which means they are admitted and available as lemmas. Please replace `PROOF OBVIOUS` with a complete, valid TLAPS proof so that tlapm can successfully verify it. The tlapm standard library is at {tlapm_path}/lib/tlaps — you may read and reference the modules there, but do not modify any files under {tlapm_path}/. You can run tlapm directly: `{tlapm_path}/bin/tlapm -I {tlapm_path}/lib/tlaps {benchmark_basename}`. Keep editing your proof until tlapm shows no errors — do not give up or stop early. If a proof attempt fails, try a different strategy. Keep iterating until `./check_proof_bin {benchmark_basename}` reports PASS. You should not change any module header, operator definitions, CONSTANT or VARIABLE declarations, ASSUME/ASSUMPTION declarations, or THEOREM/LEMMA statements that appear above `PROOF OBVIOUS`; you should not change any preceding `PROOF OMITTED` proofs. You should never use `PROOF OMITTED` or bare `OMITTED` in your proof. You are not allowed to introduce new top-level AXIOM, ASSUME, ASSUMPTION, CONSTANT, or VARIABLE declarations, or weaken theorem statements or add extra hypotheses. Before you are done, run `./check_proof_bin {benchmark_basename}` to verify you have not made any illegal changes. Do not browse or fetch any external websites — network access is disabled. Do not look for example proof files or solutions outside the current working directory. Write the proof based on your own knowledge of TLA+ and TLAPS.\
 """
 
 
@@ -230,9 +242,7 @@ def run_single_benchmark(args_tuple):
         for dep in get_dependency_files(benchmark_path):
             shutil.copy2(dep, os.path.join(workspace, os.path.basename(dep)))
 
-        # Copy check_proof.py (modified to work standalone — no git comparison in isolated env)
-        # We need a standalone version that skips git-based cheating check
-        # Actually, we'll create a fresh git repo so check_proof.py can compare
+        # Copy check_proof binary (after initial commit so it's not in the baseline)
         # Init git repo with the original benchmark as the initial commit
         subprocess.run(['git', 'init'], capture_output=True, cwd=workspace)
         subprocess.run(['git', 'add', '.'], capture_output=True, cwd=workspace)
@@ -243,8 +253,10 @@ def run_single_benchmark(args_tuple):
                             'GIT_COMMITTER_NAME': 'bench',
                             'GIT_COMMITTER_EMAIL': 'bench@bench'})
 
-        # Now copy check_proof.py (after initial commit so it's not in the baseline)
-        shutil.copy2(CHECK_PROOF_SCRIPT, os.path.join(workspace, 'check_proof.py'))
+        # Now copy check_proof binary (after initial commit so it's not in the baseline)
+        check_bin_dest = os.path.join(workspace, 'check_proof_bin')
+        shutil.copy2(CHECK_PROOF_SCRIPT, check_bin_dest)
+        os.chmod(check_bin_dest, 0o755)
 
         # Save original benchmark to results
         shutil.copy2(benchmark_path, os.path.join(result_dir, 'benchmark.tla'))
@@ -324,21 +336,24 @@ def run_single_benchmark(args_tuple):
             f.write("=" * 60 + "\n\n")
             f.write(transcript)
 
-        # Copy the (potentially modified) benchmark file as solution
+        # Copy all .tla files from workspace (solution + dependencies) — skip .tlacache
         solution_path = os.path.join(workspace, basename)
+        for tla_file in glob.glob(os.path.join(workspace, '*.tla')):
+            shutil.copy2(tla_file, os.path.join(result_dir, os.path.basename(tla_file)))
+        # Also save solution.tla as a convenience alias
         if os.path.isfile(solution_path):
             shutil.copy2(solution_path, os.path.join(result_dir, 'solution.tla'))
 
-        # Copy .result file if check_proof.py was run by codex
+        # Copy .result file if check_proof was run by codex
         result_file = os.path.join(workspace, name_no_ext + '.result')
         if os.path.isfile(result_file):
             shutil.copy2(result_file, os.path.join(result_dir, 'codex_check.result'))
 
-        # Run our own check_proof.py on the solution
+        # Run our own check_proof on the solution
         check_result_path = os.path.join(result_dir, 'check.result')
         try:
             check_proc = subprocess.run(
-                [sys.executable, CHECK_PROOF_SCRIPT, solution_path,
+                [os.path.join(workspace, 'check_proof_bin'), solution_path,
                  '--output', check_result_path, '--timeout', '120'],
                 capture_output=True, text=True, timeout=180,
                 cwd=workspace,
@@ -357,6 +372,16 @@ def run_single_benchmark(args_tuple):
                 result['check_verdict'] = 'FAIL'
             else:
                 result['check_verdict'] = 'ERROR'
+            # Extract obligation count from tlapm output
+            ob_matches = re.findall(r'All (\d+) obligation', check_proc.stdout)
+            if ob_matches:
+                result['obligations'] = int(ob_matches[-1])
+            else:
+                # Try failed obligation pattern: "X/Y obligations failed"
+                fail_match = re.search(r'(\d+)/(\d+) obligation', check_proc.stdout)
+                if fail_match:
+                    result['obligations_failed'] = int(fail_match.group(1))
+                    result['obligations_total'] = int(fail_match.group(2))
         except subprocess.TimeoutExpired:
             result['check_verdict'] = 'TIMEOUT'
         except Exception as e:
@@ -385,7 +410,11 @@ def main():
         output_dir = args.output_dir
     else:
         timestamp = time.strftime('%Y%m%d_%H%M%S')
-        output_dir = os.path.join(SCRIPT_DIR, 'codex_results', timestamp)
+        # In Docker, /result is mounted; on host, use results/codex/ relative to script
+        if os.path.isdir('/result'):
+            output_dir = os.path.join('/result', 'codex', timestamp)
+        else:
+            output_dir = os.path.join(SCRIPT_DIR, 'results', 'codex', timestamp)
     output_dir = os.path.abspath(output_dir)
     os.makedirs(output_dir, exist_ok=True)
 
