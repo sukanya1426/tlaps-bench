@@ -32,18 +32,19 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BENCHMARK_DIR = os.path.join(SCRIPT_DIR, 'benchmark')
 CHECK_PROOF_SCRIPT = os.path.join(SCRIPT_DIR, 'check_proof.py')
 
-# Persistent tlapm location
-TLAPM_PERSISTENT = os.path.expanduser('~/.tlapm15')
+# Persistent tlapm location — use /opt/tlapm15 in docker, ~/.tlapm15 on host
+TLAPM_PERSISTENT = '/opt/tlapm15' if os.path.isdir('/opt/tlapm15') else os.path.expanduser('~/.tlapm15')
 TLAPM_SOURCE = '/tmp/tlapm15'
 
 
 def ensure_tlapm():
-    """Copy tlapm to persistent location if not already there."""
+    """Ensure tlapm is available."""
     if os.path.isfile(os.path.join(TLAPM_PERSISTENT, 'bin', 'tlapm')):
-        print(f"tlapm already at {TLAPM_PERSISTENT}")
+        print(f"tlapm at {TLAPM_PERSISTENT}")
         return
+    # Try copying from /tmp/tlapm15 (host-only fallback)
     if not os.path.isdir(TLAPM_SOURCE):
-        print(f"ERROR: tlapm source not found at {TLAPM_SOURCE}")
+        print(f"ERROR: tlapm not found at {TLAPM_PERSISTENT} or {TLAPM_SOURCE}")
         sys.exit(1)
     print(f"Copying tlapm to {TLAPM_PERSISTENT}...")
     shutil.copytree(TLAPM_SOURCE, TLAPM_PERSISTENT)
@@ -190,8 +191,9 @@ def update_summary(results, output_dir, total_benchmarks):
 def build_prompt(benchmark_basename):
     """Build the proof-writing prompt for codex."""
     name_no_ext = os.path.splitext(benchmark_basename)[0]
+    tlapm_path = TLAPM_PERSISTENT
     return f"""\
-The file {benchmark_basename} contains a TLA+ theorem that cannot be verified by tlapm (the TLA+ Proof System) yet. The last theorem in the file has `PROOF OBVIOUS` as a placeholder proof that will fail. Preceding theorems have `PROOF OMITTED` which means they are admitted and available as lemmas. Please replace `PROOF OBVIOUS` with a complete, valid TLAPS proof so that tlapm can successfully verify it. The tlapm standard library is at ~/.tlapm15/lib/tlaps; please feel free to check it when needed. You should KEEP editing your proof until tlapm shows there is no error. You should NOT change any module header, operator definitions, CONSTANT or VARIABLE declarations, ASSUME/ASSUMPTION declarations, or THEOREM/LEMMA statements that appear above `PROOF OBVIOUS`; you should NOT change any preceding `PROOF OMITTED` proofs. You should NEVER use `PROOF OMITTED` or bare `OMITTED` in your proof. You are also NOT allowed to introduce new top-level AXIOM, ASSUME, ASSUMPTION, CONSTANT, or VARIABLE declarations. You should NEVER weaken theorem statements or add extra hypotheses. You can run tlapm directly: `~/.tlapm15/bin/tlapm -I ~/.tlapm15/lib/tlaps {benchmark_basename}`. Before you are done, MAKE SURE to run `python3 check_proof.py {benchmark_basename}` to double check whether you have made any illegal changes to {benchmark_basename} (fix those if you did).\
+The file {benchmark_basename} contains a TLA+ theorem that cannot be verified by tlapm (the TLA+ Proof System) yet. The last theorem in the file has `PROOF OBVIOUS` as a placeholder proof that will fail. Preceding theorems have `PROOF OMITTED` which means they are admitted and available as lemmas. Please replace `PROOF OBVIOUS` with a complete, valid TLAPS proof so that tlapm can successfully verify it. The tlapm standard library is at {tlapm_path}/lib/tlaps. You should KEEP editing your proof until tlapm shows there is no error. You should NOT change any module header, operator definitions, CONSTANT or VARIABLE declarations, ASSUME/ASSUMPTION declarations, or THEOREM/LEMMA statements that appear above `PROOF OBVIOUS`; you should NOT change any preceding `PROOF OMITTED` proofs. You should NEVER use `PROOF OMITTED` or bare `OMITTED` in your proof. You are also NOT allowed to introduce new top-level AXIOM, ASSUME, ASSUMPTION, CONSTANT, or VARIABLE declarations. You should NEVER weaken theorem statements or add extra hypotheses. You can run tlapm directly: `{tlapm_path}/bin/tlapm -I {tlapm_path}/lib/tlaps {benchmark_basename}`. Before you are done, MAKE SURE to run `python3 check_proof.py {benchmark_basename}` to double check whether you have made any illegal changes to {benchmark_basename} (fix those if you did). IMPORTANT: Do NOT browse or fetch any external websites — network access is disabled. Do NOT look for example proof files or solutions outside the current working directory. You must write the proof entirely based on your own knowledge of TLA+ and TLAPS.\
 """
 
 
@@ -268,16 +270,19 @@ def run_single_benchmark(args_tuple):
             '-o', codex_last_msg,
         ]
 
-        # Build a shell command that sources ~/.zshrc to pick up env vars
-        shell_cmd = 'source ~/.zshrc 2>/dev/null; exec ' + ' '.join(
+        # Build a shell command; source shell profile for host env vars (no-op in docker)
+        shell_cmd = 'source ~/.zshrc 2>/dev/null; source ~/.bashrc 2>/dev/null; exec ' + ' '.join(
             shlex.quote(c) for c in cmd
         )
+
+        # Use bash (available in docker); fall back to zsh on host
+        shell = 'bash'
 
         start_time = time.time()
         try:
             with open(codex_jsonl, 'w') as jsonl_f:
                 proc = subprocess.Popen(
-                    ['zsh', '-c', shell_cmd],
+                    [shell, '-c', shell_cmd],
                     stdin=subprocess.PIPE,
                     stdout=jsonl_f,
                     stderr=subprocess.PIPE,

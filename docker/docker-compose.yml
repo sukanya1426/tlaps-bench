@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  bench:
+    image: tlaps-bench
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # NET_ADMIN needed for iptables firewall setup in entrypoint
+    cap_add:
+      - NET_ADMIN
+    environment:
+      # Pass API keys at runtime (never baked into image)
+      # For OpenAI: set OPENAI_API_KEY in host env or .env file
+      # For Azure: set AZURE_OPENAI_API_KEY and AZURE_OPENAI_HOST
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
+      - AZURE_OPENAI_HOST=${AZURE_OPENAI_HOST:-}
+    volumes:
+      # Benchmark files (read-only)
+      - ../benchmark:/benchmark:ro
+      # Scripts (read-only)
+      - ../check_proof.py:/scripts/check_proof.py:ro
+      - ../run_codex_benchmark.py:/scripts/run_codex_benchmark.py:ro
+      # Optional: custom codex config (for Azure users etc.)
+      # Uncomment and point to your config:
+      # - ./codex-config.toml:/mnt/codex-config.toml:ro
+      # Results output
+      - ../codex_results:/results
+    # Entrypoint sets up iptables whitelist (only OpenAI/Azure API allowed)
+    # then drops to unprivileged 'bench' user via gosu

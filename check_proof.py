@@ -31,7 +31,7 @@ import glob
 
 def find_tlapm():
     """Find tlapm binary."""
-    for candidate in ['/tmp/tlapm15/bin/tlapm', '/tmp/tlapm/bin/tlapm', shutil.which('tlapm')]:
+    for candidate in ['/opt/tlapm15/bin/tlapm', '/tmp/tlapm15/bin/tlapm', '/tmp/tlapm/bin/tlapm', shutil.which('tlapm')]:
         if candidate and os.path.isfile(candidate):
             return candidate
     return None
