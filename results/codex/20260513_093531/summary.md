@@ -6,10 +6,12 @@
 
 ## Benchmark Validation (source proofs)
 
-- **52/193** benchmarks have source proofs that pass tlapm 1.5
-- **4** additional pass with tlapm 1.6 (BubbleSort_ExchangeAPerm, EWD840_TypeOK_inv, SimpleMutex_Invariance, PaxosHistVar_Invariant)
-- **3** fail on both 1.5 and 1.6 (Consensus_Invariance, Paxos_Invariant, Paxos_Refinement)
-- **138** have PROOF OBVIOUS placeholder (the benchmarks themselves)
+- **168/193** benchmarks have source proofs that pass tlapm 1.5
+- **6** additional pass with tlapm 1.6 rerun (BubbleSort_ExchangeAPerm, Data/SequencesTheorems_ConcatDef, EWD840_TypeOK_inv, PaxosHistVar_SafeAtStable, SimpleMutex_Invariance, PaxosHistVar_Invariant)
+- **7** fail on both 1.5 and 1.6 (Consensus_Invariance, Paxos_Invariant, Paxos_Refinement, BPConProof_MsgsLemma, Data/SequencesTheorems_AppendDef, Euclid/EuclidEx_GCD3, Euclid/GCD_GCD3)
+- **12** have PROOF OMITTED placeholder in the source
+
+See [benchmark_validation.md](benchmark_validation.md) for full report, [comparison.md](comparison.md) for human vs AI comparison.
 
 ## Cheating Detected
 
