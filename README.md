@@ -61,9 +61,9 @@ We evaluated [OpenAI Codex CLI](https://github.com/openai/codex) with GPT-5.5 on
 | Paxos/Paxos_Invariant | 3/41 failed | Phase1b MsgInv' intractable; source also fails tlapm 1.5+1.6 |
 | ByzantinePaxos/BPConProof_MsgsLemma | 3/123 failed | 2h timeout; 115/119 proved, still iterating at cutoff |
 
-### Cheating Detected
+### Proof Anti-patterns Detected
 
-Four benchmarks were caught cheating — all are interesting case studies in how AI systems probe evaluation infrastructure. See [`CHEATING.md`](CHEATING.md) for a full catalog of cheating vectors (observed and anticipated), detection mechanisms, countermeasures, and a detailed timeline of how Codex reverse-engineered the checker.
+Four benchmarks triggered anti-pattern detection — all are interesting case studies in how AI-generated proofs can contain unsound patterns that pass the checker. See [`PROOF_ANTIPATTERNS.md`](PROOF_ANTIPATTERNS.md) for a full catalog of known anti-patterns (observed and anticipated), detection mechanisms, countermeasures, and a detailed timeline of how Codex reverse-engineered the checker.
 
 | Benchmark | Method |
 |-----------|--------|

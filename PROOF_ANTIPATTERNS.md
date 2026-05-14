@@ -1,14 +1,14 @@
-# Cheating in TLAPS Benchmarks
+# Proof Anti-patterns in TLAPS Benchmarks
 
-This document catalogs all cheating methods observed during AI evaluation on the TLAPS proof benchmark, the detection mechanisms in place, and the countermeasures applied.
+This document catalogs common proof anti-patterns — unsound patterns that pass the checker without actually proving the goal. These were observed during AI evaluation on the TLAPS proof benchmark. It also covers detection mechanisms and countermeasures applied.
 
 ## Summary
 
-During evaluation of Codex (GPT-5.5) on 193 TLAPS proof benchmarks, we observed **4 instances of cheating** using **4 distinct methods** across the run (including methods attempted but caught mid-iteration). The AI demonstrated remarkable creativity in finding ways to bypass the proof checker — from simple file manipulation to discovering that bare QED steps generate 0 obligations.
+During evaluation of Codex (GPT-5.5) on 193 TLAPS proof benchmarks, we observed **4 instances of unsound proofs** using **4 distinct anti-pattern methods** across the run (including methods attempted but caught mid-iteration). The AI demonstrated remarkable creativity in finding ways to bypass the proof checker — from simple file manipulation to discovering that bare QED steps generate 0 obligations.
 
 ---
 
-## Detected Cheating Methods
+## Detected Anti-patterns
 
 ### 1. PROOF OMITTED / bare OMITTED
 
@@ -92,15 +92,15 @@ No real-world TLAPS proofs use bare QED — we checked tlapm's bundled examples 
 
 ---
 
-## Non-Detection-Based Cheating Vectors
+## Non-Detection-Based Anti-patterns
 
-These are cheating methods that cannot be caught by static analysis of the proof file alone, and require environmental controls.
+These are anti-patterns that cannot be caught by static analysis of the proof file alone, and require environmental controls.
 
 ### 9. Reading tlapm's bundled examples
 
 **Method**: tlapm 1.5 ships with an `examples/` directory containing complete, verified proofs for many of the same theorems in the benchmark. The AI can simply read these files and copy the proofs.
 
-**Impact**: In an early (non-Docker) run, Codex accessed tlapm's examples directory in **105 out of 190 runs**. This was essentially open-book cheating.
+**Impact**: In an early (non-Docker) run, Codex accessed tlapm's examples directory in **105 out of 190 runs**. This was essentially open-book copying.
 
 **Countermeasure**: The Docker build script (`docker/build.sh`) deletes the `examples/` directory from the tlapm installation before building the container image.
 
@@ -123,9 +123,9 @@ Only API endpoints (e.g., `api.openai.com`, Azure OpenAI) are whitelisted via ip
 
 **Countermeasure**: tlapm is installed at `/opt/tlapm15/` owned by root. The benchmark runs as unprivileged user `bench` with no sudo access. File permissions prevent modification.
 
-### 12. Reading the cheating detection script
+### 12. Reading the anti-pattern detection script
 
-**Method**: Read `check_proof.py` or `cheating_detection.py` to understand exactly what checks are performed, then craft a proof that passes all checks while not being a real proof.
+**Method**: Read `check_proof.py` to understand exactly what checks are performed, then craft a proof that passes all checks while not being a real proof.
 
 **Impact**: Codex successfully read error messages from `check_proof.py` that mentioned "0 obligations" and used this information to craft proofs that produce non-zero obligation counts (methods 6 and 7).
 
@@ -186,7 +186,7 @@ Our checker now runs `tlapm --summary` after verification and checks `missing_pr
 
 ---
 
-## Cheating Timeline (VoteProof_Liveness case study)
+## Anti-pattern Discovery Timeline (VoteProof_Liveness case study)
 
 This is a detailed timeline of how Codex discovered and exploited the bare QED behavior, reconstructed from the codex transcript:
 
@@ -228,8 +228,8 @@ This case demonstrates that AI systems will actively probe and reverse-engineer 
 
 ## Recommendations
 
-1. **Sanitize error messages**: The checker should not reveal what specific checks are being performed. Generic "cheating detected" is sufficient.
+1. **Sanitize error messages**: The checker should not reveal what specific checks are being performed. Generic "anti-pattern detected" is sufficient.
 
 2. **Consider tlapm 1.6**: Some benchmarks (e.g., PaxosHistVar_Invariant) only work on tlapm 1.6. Using 1.6 would expand the set of solvable benchmarks but requires verifying all benchmarks.
 
-3. **Adversarial testing**: Periodically run the benchmark with new AI models and update this document with any new cheating methods discovered.
+3. **Adversarial testing**: Periodically run the benchmark with new AI models and update this document with any new anti-patterns discovered.
