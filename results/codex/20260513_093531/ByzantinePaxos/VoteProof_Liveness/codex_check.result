@@ -4,18 +4,30 @@ tlapm: /opt/tlapm15/bin/tlapm
 ============================================================
 TLAPM OUTPUT
 ============================================================
-File "/tmp/tlaps_check_q6lq2p0l/VoteProof_Liveness.tla", line 768, character 12
-incomplete expression
-File "<unknown>":
-Error: Could not parse "/tmp/tlaps_check_q6lq2p0l/VoteProof_Liveness.tla" successfully.
- tlapm ending abnormally with Failure("Module.Parser.parse_file")
-Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
-Called from M_save.clocking in file "m_save.ml", line 25, characters 16-20
-Called from Tlapm.read_new_modules.(fun) in file "tlapm.ml", line 455, characters 8-112
-Called from Stdlib__list.fold_left in file "list.ml", line 121, characters 24-34
-Called from Tlapm.main in file "tlapm.ml", line 490, characters 20-43
-Called from Tlapm.init in file "tlapm.ml", line 518, characters 8-33
+(* created new ".tlacache/FiniteSets.tlaps/FiniteSets.thy" *)
+(* fingerprints written in ".tlacache/FiniteSets.tlaps/fingerprints" *)
+(* created new ".tlacache/TLAPS.tlaps/TLAPS.thy" *)
+(* fingerprints written in ".tlacache/TLAPS.tlaps/fingerprints" *)
+(* created new ".tlacache/Consensus.tlaps/Consensus.thy" *)
+(* fingerprints written in ".tlacache/Consensus.tlaps/fingerprints" *)
+File "./Consensus.tla", line 216, characters 23-26:
+[INFO]: Auto-expanding the definition of operator:  Next
 
+File "./Consensus.tla", line 216, characters 30-33:
+[INFO]: Auto-expanding the definition of operator:  vars
+
+(* created new ".tlacache/VoteProof_Liveness.tlaps/VoteProof_Liveness.thy" *)
+(* fingerprints written in ".tlacache/VoteProof_Liveness.tlaps/fingerprints" *)
+File "/opt/tlapm15/lib/tlaps/FiniteSets.tla", line 1, character 1 to line 23, character 77:
+[INFO]: All 0 obligation proved.
+File "/opt/tlapm15/lib/tlaps/TLAPS.tla", line 1, character 1 to line 362, character 77:
+[INFO]: All 0 obligation proved.
+File "./Consensus.tla", line 1, character 1 to line 231, character 77:
+[INFO]: All 0 obligation proved.
+** Unexpanded symbols: ---
+
+File "/tmp/tlaps_check_5yw3x4cd/VoteProof_Liveness.tla", line 1, character 1 to line 760, character 79:
+[INFO]: All 1 obligation proved.
 
 
 ============================================================
@@ -26,4 +38,4 @@ CHEATING CHECK
 ============================================================
 VERDICT
 ============================================================
-  ❌ FAIL — tlapm exit code 3
+  ✅ PASS — all obligations proved

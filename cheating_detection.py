@@ -193,6 +193,53 @@ def detect_missing_proof(original_lines: List[str], current_lines: List[str],
     return issues
 
 
+def detect_missing_proofs_summary(summary_output: str,
+                                   target_theorem_line: Optional[int] = None) -> List[CheatingIssue]:
+    """Check tlapm --summary output for missing proofs in the target theorem.
+
+    tlapm treats a bare QED (without BY/OBVIOUS) as an implicit omission,
+    generating 0 obligations for that step. The --summary flag reports these
+    as missing_proofs_count > 0.
+
+    We only check the section matching the target theorem (by line number),
+    because earlier theorems may have bare declarations (source artifacts)
+    that also produce missing_proofs_count — those are not AI cheating.
+
+    If target_theorem_line is not provided, we skip detection (cannot
+    distinguish scaffolding from target).
+
+    This catches cheating vectors such as:
+    - Bare QED steps (no BY/OBVIOUS)
+    - Any proof step left without justification in the target theorem
+    """
+    issues = []
+    if target_theorem_line is None:
+        return issues
+
+    # Find the section for the target theorem by line number
+    # Format: "---- incomplete proof of theorem at line N, character M ----"
+    pattern = rf'----\s+incomplete proof of theorem at line {target_theorem_line}\b'
+    m = re.search(pattern, summary_output)
+    if not m:
+        return issues  # target theorem not in incomplete list — good
+
+    # Extract this section (until next "----" section or "====")
+    start = m.end()
+    end_m = re.search(r'\n\s*====', summary_output[start:])
+    section = summary_output[start:start + end_m.start()] if end_m else summary_output[start:]
+
+    m2 = re.search(r'missing_proofs_count\s*=\s*(\d+)', section)
+    if m2 and int(m2.group(1)) > 0:
+        count = int(m2.group(1))
+        locations = re.findall(r'missing_proof_\d+\s+at\s+line\s+(\d+)', section)
+        loc_str = f" (at line(s) {', '.join(locations)})" if locations else ""
+        issues.append(CheatingIssue(
+            "MISSING_PROOF_STEPS",
+            f"tlapm --summary reports {count} missing proof(s){loc_str} in target theorem — proof is incomplete"
+        ))
+    return issues
+
+
 def detect_dependency_modification(dep_files: Dict[str, Tuple[str, str]]) -> List[CheatingIssue]:
     """Check if dependency .tla files were modified.
 

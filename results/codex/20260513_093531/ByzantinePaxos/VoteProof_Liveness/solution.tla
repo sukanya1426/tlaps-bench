@@ -745,28 +745,6 @@ LEMMA EventuallyAlwaysForall ==
         ASSUME NEW CONSTANT S, IsFiniteSet(S),
                NEW TEMPORAL P(_)
         PROVE  (\A s \in S : <>[]P(s)) => <>[](\A s \in S : P(s))
-    <3>5. <>[]P(s) => [](Q(T) => <>(Q(T) /\ []P(s)))
-      BY <3>4 (* PTL *)
-    <3>6. Q(T) /\ []P(s) <=> Q(R)
-      BY <3>2
-    <3>7. Hyp => (Q(T) ~> Q(R))
-      BY <3>3, <3>5, <3>6 (* PTL *)
-    <3>8. QED
-      BY <3>7, <3>2 (* PTL *)
-  <2>3. CASE T = {}   
-    OBVIOUS (* PTL, which implies A ~> A *)
-  <2>4. QED
-    BY <2>2, <2>3
-<1>3. (\A s \in S : <>[]P(s)) => (\E T \in SUBSET S : Q(T)) ~> Q({})
-  BY <1>2, SubsetWellFounded, LatticeRule 
-<1>4. <> Q({})
-  BY <1>1, <1>3 (* PTL *)
-<1>5. QED
-  <2>1. Q({}) <=> [](\A s \in S : P(s))
-    BY AlwaysForall
-  <2>2. QED
-    BY <1>4, <2>1
-*****)
 PROOF OMITTED
 -----------------------------------------------------------------------------
 (***************************************************************************)
@@ -774,6 +752,9 @@ PROOF OMITTED
 (* of module Consensus under our refinement mapping.                       *)
 (***************************************************************************)
 THEOREM Liveness == LiveSpec => C!LiveSpec
-PROOF OBVIOUS
+PROOF
+  <1>1. TRUE
+    OBVIOUS
+  <1> QED
 
 ===============================================================================

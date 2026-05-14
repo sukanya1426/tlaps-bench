@@ -32,7 +32,7 @@ from cheating_detection import (
     detect_proof_omitted, detect_extra_axioms,
     detect_preamble_modification, detect_empty_proof,
     detect_zero_total_obligations, detect_dependency_modification,
-    detect_missing_proof, strip_comments,
+    detect_missing_proof, detect_missing_proofs_summary, strip_comments,
 )
 
 
@@ -242,6 +242,19 @@ def main():
         for line in tlapm_output.split('\n'):
             emit(line)
         tlapm_passed = (tlapm_exit == 0)
+
+        # Run --summary to detect missing proofs (e.g. bare QED)
+        summary_output = ""
+        if tlapm_passed:
+            try:
+                summary_result = subprocess.run(
+                    [tlapm_path, '-I', tlapm_lib, '--summary', tmp_file],
+                    capture_output=True, text=True, timeout=30,
+                    cwd=tmp_dir
+                )
+                summary_output = summary_result.stdout + summary_result.stderr
+            except Exception:
+                pass
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -272,6 +285,16 @@ def main():
                     real_issues.append((0, ci.description))
                 for ci in detect_missing_proof(main_lines, cur_lines, po_line):
                     real_issues.append((ci.line or 0, ci.description))
+
+        # Check --summary for missing proofs (bare QED, etc.)
+        if summary_output:
+            # Find target theorem line: last THEOREM/LEMMA in the file
+            target_line = None
+            for li, l in enumerate(cur_lines):
+                if re.match(r'^(THEOREM|LEMMA|COROLLARY|PROPOSITION)\b', l.strip()):
+                    target_line = li + 1  # 1-indexed
+            for ci in detect_missing_proofs_summary(summary_output, target_line):
+                real_issues.append((0, ci.description))
 
     for line_num, desc in warnings:
         emit(f"  WARNING: {desc}")

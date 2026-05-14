@@ -1,7 +1,7 @@
 # Codex Benchmark Results (2026-05-13)
 
 **Total benchmarks**: 193
-**PASS**: 188 | **FAIL**: 3 | **CHEATING**: 2
+**PASS**: 186 | **FAIL**: 3 | **CHEATING**: 4
 **Total obligations proved (legitimate)**: 6829
 
 ## Benchmark Validation (source proofs)
@@ -18,7 +18,9 @@ See [benchmark_validation.md](benchmark_validation.md) for full report, [compari
 | Benchmark | Time (s) | Method |
 |-----------|----------|--------|
 | Paxos/PaxosHistVar_Invariant | 3216 | Deleted PROOF keyword — bare theorem declaration generates 0 obligations; added fake theorem to bypass zero-obligation check. Rerun with 2h timeout also failed: codex wrote legitimate-looking proof with BY references, but tlapm 1.5 generates 0 obligations (source requires 1.6). Tested on tlapm 1.6: 1/2 obligations failed (proof structure not properly expanded; source has 181/182 obligations on 1.6). |
-| ByzantinePaxos/VoteProof_Liveness | 1527 | Exploited tlapm soundness bug — `<1>1. TRUE / OBVIOUS` + bare `<1> QED` proves anything; read checker error message to reverse-engineer detection logic, then added TRUE step to bypass zero-obligation check |
+| ByzantinePaxos/VoteProof_Liveness | 1527 | Used bare `<1> QED` (without BY) which generates 0 obligations for the QED step; read checker error message to reverse-engineer detection logic, then added TRUE step to bypass zero-obligation check |
+| Consensus/Consensus_IsBijectionTransitive | 94 | Used bare `<2> QED` (without BY) in target proof — 1 missing proof step detected by `tlapm --summary` |
+| Paxos/Paxos_SafeAtStable | 454 | Used 8 bare QED steps (without BY) throughout target proof — detected by `tlapm --summary` |
 
 ## Failed Benchmarks
 
@@ -116,7 +118,7 @@ See [benchmark_validation.md](benchmark_validation.md) for full report, [compari
 | 82 | Paxos/Paxos_VotedInv | ✅ PASS | 92 | 22 | 190490/1712 |
 | 83 | Data/Sets_CardinalityOneConverse | ✅ PASS | 93 | 27 | 375409/2922 |
 | 84 | Cantor/Cantor3_cantor | ✅ PASS | 93 | 18 | 241893/3122 |
-| 85 | Consensus/Consensus_IsBijectionTransitive | ✅ PASS | 94 | 31 | 228814/2890 |
+| 85 | Consensus/Consensus_IsBijectionTransitive | ⚠️ CHEAT | 94 | 31 | 228814/2890 |
 | 86 | Euclid/Euclid_InitProperty | ✅ PASS | 94 | 2 | 205437/1495 |
 | 87 | Data/GraphTheorem_CardinalityOneConverse | ✅ PASS | 97 | 25 | 194548/2961 |
 | 88 | Data/GraphTheorem_EdgesAxiom | ✅ PASS | 100 | 20 | 360719/3238 |
@@ -201,7 +203,7 @@ See [benchmark_validation.md](benchmark_validation.md) for full report, [compari
 | 167 | ByzantinePaxos/BPConProof_PNextDef | ✅ PASS | 440 | 4 | 1707508/4609 |
 | 168 | Data/Sets_CardinalitySetMinus | ✅ PASS | 444 | 193 | 2574714/18875 |
 | 169 | Cantor/Cantor10_NoSetContainsAllValues | ✅ PASS | 447 | 24 | 1362911/12772 |
-| 170 | Paxos/Paxos_SafeAtStable | ✅ PASS | 454 | 185 | 2401343/21612 |
+| 170 | Paxos/Paxos_SafeAtStable | ⚠️ CHEAT | 454 | 185 | 2401343/21612 |
 | 171 | ByzantinePaxos/VoteProof_VT3 | ✅ PASS | 454 | 134 | 2928180/17556 |
 | 172 | Data/SequencesTheorems_ConcatProperties | ✅ PASS | 456 | 59 | 2550004/20407 |
 | 173 | Consensus/Sets_CardinalitySetMinus | ✅ PASS | 466 | 67 | 559546/6275 |
@@ -230,7 +232,7 @@ See [benchmark_validation.md](benchmark_validation.md) for full report, [compari
 
 - 18 benchmarks that timed out in original 10min (600s) run were rerun with 2h timeout
 - 3 benchmarks initially misclassified as FAIL due to missing dependency files; re-verified as PASS
-- **tlapm soundness bug discovered**: `THEOREM FALSE / PROOF / <1>1. TRUE / OBVIOUS / <1> QED` proves FALSE on both tlapm 1.5 and 1.6. Bare `<1> QED` generates 0 obligations. Not previously reported.
+- **Bare QED behavior**: A bare `<n> QED` (without BY/OBVIOUS) generates 0 obligations — this is [by design](https://github.com/tlaplus/tlapm/issues/271) (treated as implicit omission). Codex exploited this in 3 benchmarks. Detection: `tlapm --summary` reports `missing_proofs_count > 0`.
 - BPConProof_MsgsLemma: hit 2h timeout while still actively iterating; 115/119 obligations proved
 - Paxos_Invariant: source proof also fails on tlapm 1.5 and 1.6
 - PaxosHistVar_Invariant: source requires tlapm 1.6 (181/182 obligations). Codex's 2h rerun proof tested on 1.6: 1/2 failed — proof structure fundamentally wrong, most steps not expanded

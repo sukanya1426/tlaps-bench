@@ -7,9 +7,9 @@ Comparison of original human-written proofs (from [hengxin/tlaps-examples](https
 | Metric | Human | AI (Codex/GPT-5.5) |
 |--------|-------|---------------------|
 | Benchmarks | 193 | 193 |
-| ✅ Pass | 173 | 188 |
+| ✅ Pass | 173 | 186 |
 | ❌ Fail | 8 | 3 |
-| ⏭️ Omitted / ⚠️ Cheating | 12 | 2 |
+| ⏭️ Omitted / ⚠️ Cheating | 12 | 4 |
 | N/A (no source proof found) | 0 | — |
 | Total proof lines | 4839 | 5997 |
 | Avg proof lines (PASS only) | 19.7 | 31.1 |
@@ -20,7 +20,7 @@ Comparison of original human-written proofs (from [hengxin/tlaps-examples](https
 - Human "Fail" (7): source proofs that fail on both tlapm 1.5 and 1.6 — likely version-dependent, incomplete, or bit-rotted in the original repository
 - Human "Omitted" (12): the source proof uses `PROOF OMITTED` — no real proof was written by the human author
 - Human "N/A": the validation script could not locate the corresponding source proof file
-- AI "Cheating" (2): the AI bypassed the proof checker rather than writing a real proof (see [CHEATING.md](../../CHEATING.md))
+- AI "Cheating" (4): the AI bypassed the proof checker rather than writing a real proof (see [CHEATING.md](../../CHEATING.md))
 - AI time includes codex LLM inference + iterative tlapm verification; human time is tlapm verification only
 
 ## Notable Differences
@@ -37,6 +37,7 @@ Comparison of original human-written proofs (from [hengxin/tlaps-examples](https
 | Consensus/Consensus_CardinalitySetMinus | OMITTED | PASS | AI proved what human left as OMITTED |
 | Consensus/Sets_CardinalitySetMinus | OMITTED | PASS | AI proved what human left as OMITTED |
 | Consensus/PaxosProof_struct_lemma | OMITTED | FAIL | OMITTED → FAIL |
+| Consensus/Consensus_IsBijectionTransitive | PASS | CHEATING | AI used bare QED (no BY) — detected by tlapm --summary |
 | Consensus/PaxosProof_typing | OMITTED | PASS | AI proved what human left as OMITTED |
 | Data/SequencesTheorems_AppendDef | FAIL | PASS | AI solved; human proof fails on tlapm 1.5+1.6 |
 | Data/GraphTheorem_CardinalitySetMinus | OMITTED | PASS | AI proved what human left as OMITTED |
@@ -44,6 +45,7 @@ Comparison of original human-written proofs (from [hengxin/tlaps-examples](https
 | Euclid/GCD_GCD3 | FAIL | PASS | AI solved; human proof fails on tlapm 1.5+1.6 |
 | Euclid/EuclidEx_GCD3 | FAIL | PASS | AI solved; human proof fails on tlapm 1.5+1.6 |
 | Paxos/PaxosHistVar_Invariant | FAIL | CHEATING | Human proof fails; AI cheated |
+| Paxos/Paxos_SafeAtStable | PASS | CHEATING | AI used 8 bare QED steps (no BY) — detected by tlapm --summary |
 | Paxos/Paxos_Refinement | FAIL | PASS | AI solved; human proof fails on tlapm 1.5+1.6 |
 
 ## Full Benchmark Comparison
@@ -160,7 +162,7 @@ Comparison of original human-written proofs (from [hengxin/tlaps-examples](https
 | 108 | Consensus/Consensus_IsBijectionInverse | ✅ | ✅ | 3 | 44 | 140 | 32 | 427K/5K |
 | 109 | Consensus/PaxosProof_IsBijectionInverse | ✅ | ✅ | 3 | 33 | 124 | 43 | 527K/5K |
 | 110 | Consensus/Sets_IsBijectionInverse | ✅ | ✅ | 3 | 27 | 140 | 32 | 324K/3K |
-| 111 | Consensus/Consensus_IsBijectionTransitive | ✅ | ✅ | 7 | 31 | 94 | 31 | 228K/2K |
+| 111 | Consensus/Consensus_IsBijectionTransitive | ✅ | ⚠️ | 7 | 31 | 94 | 31 | 228K/2K |
 | 112 | Consensus/PaxosProof_IsBijectionTransitive | ✅ | ✅ | 7 | 30 | 200 | 30 | 831K/8K |
 | 113 | Consensus/Sets_IsBijectionTransitive | ✅ | ✅ | 7 | 30 | 172 | 24 | 380K/4K |
 | 114 | Consensus/Voting_OneVoteThm | ✅ | ✅ | 1 | 1 | 44 | 1 | 112K/0K |
@@ -231,7 +233,7 @@ Comparison of original human-written proofs (from [hengxin/tlaps-examples](https
 | 179 | Paxos/Paxos_QuorumNonEmpty | ✅ | ✅ | 1 | 10 | 53 | 7 | 185K/1K |
 | 180 | Paxos/Paxos_Refinement | ❌ | ✅ | 16 | 66 | 320 | 60 | 1343K/8K |
 | 181 | Paxos/PaxosHistVar_SafeAtStable | ✅ | ✅ | 39 | 81 | 380 | 85 | 1633K/16K |
-| 182 | Paxos/Paxos_SafeAtStable | ✅ | ✅ | 39 | 160 | 454 | 185 | 2401K/21K |
+| 182 | Paxos/Paxos_SafeAtStable | ✅ | ⚠️ | 39 | 160 | 454 | 185 | 2401K/21K |
 | 183 | Paxos/PaxosHistVar_VotedInv | ✅ | ✅ | 1 | 25 | 80 | 15 | 136K/1K |
 | 184 | Paxos/Paxos_VotedInv | ✅ | ✅ | 1 | 29 | 92 | 22 | 190K/1K |
 | 185 | Paxos/PaxosHistVar_VotedOnce | ✅ | ✅ | 1 | 33 | 84 | 28 | 248K/3K |
