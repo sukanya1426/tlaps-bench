@@ -5,11 +5,20 @@ Check a single TLAPS benchmark proof for correctness and cheating.
 Designed for AI agents to get quick feedback during proof writing.
 
 Usage:
-    python3 check_proof.py benchmark/Euclid/GCD_GCD3.tla [--tlapm PATH] [--tlapm-lib PATH] [--timeout SECS]
+    python3 check_proof.py benchmark/Euclid/GCD_GCD3.tla \\
+        [--level {1,2}] [--tlapm PATH] [--tlapm-lib PATH] [--timeout SECS]
+
+Levels:
+    1 (default) — proof completion. The preamble (above PROOF OBVIOUS) must be
+                  byte-identical to the baseline.
+    2          — proof from scratch. The agent may add new LEMMAs above the
+                  target theorem; preamble integrity is not enforced. Other
+                  cheating checks (PROOF OMITTED, axiom injection, bare QED,
+                  dependency tampering) still apply.
 
 Output:
     - Raw tlapm output (preserved verbatim)
-    - Cheating check (compares against main branch)
+    - Cheating check (compares against main branch where applicable)
     - Summary verdict: PASS / FAIL / CHEATING
 
 Exit codes:
@@ -97,8 +106,14 @@ def find_proof_obvious_line(lines):
     return None
 
 
-def check_cheating(filepath):
+def check_cheating(filepath, level: int = 1):
     """Check for cheating by comparing against main branch.
+
+    Args:
+        level: 1 = strict preamble + proof-section checks;
+               2 = preamble may grow (the agent can add lemmas), so the
+                   preamble-integrity check is skipped and PROOF OMITTED is
+                   scanned across the whole current file.
 
     Returns list of (line_number_1indexed, description) issues.
     """
@@ -121,18 +136,27 @@ def check_cheating(filepath):
         issues.append((0, "WARNING: No PROOF OBVIOUS found in main branch version"))
         return issues
 
-    if len(current_lines) < po_line:
+    if level == 1 and len(current_lines) < po_line:
         issues.append((len(current_lines), f"File truncated: preamble had {po_line} lines, file has {len(current_lines)}"))
         return issues
 
-    # 1. Preamble modification (shared module)
-    for ci in detect_preamble_modification(main_lines, current_lines, po_line):
-        issues.append((ci.line or 0, ci.description))
+    # 1. Preamble modification — L1 only.
+    # L2 permits new declarations above the target theorem, so a byte-for-byte
+    # preamble check would reject legitimate proofs.
+    if level == 1:
+        for ci in detect_preamble_modification(main_lines, current_lines, po_line):
+            issues.append((ci.line or 0, ci.description))
 
-    # 2. PROOF OMITTED / bare OMITTED in proof section (shared module)
-    proof_section = '\n'.join(current_lines[po_line:])
-    for ci in detect_proof_omitted(proof_section):
-        issues.append((po_line + (ci.line or 0), ci.description))
+    # 2. PROOF OMITTED / bare OMITTED.
+    # L1: only the proof section can plausibly contain it (and must not).
+    # L2: scan the whole current file — the agent may add proofs anywhere.
+    if level == 1:
+        proof_section = '\n'.join(current_lines[po_line:])
+        for ci in detect_proof_omitted(proof_section):
+            issues.append((po_line + (ci.line or 0), ci.description))
+    else:
+        for ci in detect_proof_omitted(current_content):
+            issues.append((ci.line or 0, ci.description))
 
     # 3. Extra AXIOM/ASSUME (shared module)
     for ci in detect_extra_axioms(main_content, current_content):
@@ -176,6 +200,8 @@ def check_cheating(filepath):
 def main():
     parser = argparse.ArgumentParser(description='Check a single TLAPS benchmark proof')
     parser.add_argument('file', help='Path to the benchmark .tla file')
+    parser.add_argument('--level', type=int, default=1, choices=[1, 2],
+                        help='Benchmark level — controls cheating rules (default: 1)')
     parser.add_argument('--tlapm', default=None, help='Path to tlapm binary')
     parser.add_argument('--tlapm-lib', default=None, help='Path to tlapm lib directory')
     parser.add_argument('--timeout', type=int, default=120, help='Timeout in seconds')
@@ -276,7 +302,7 @@ def main():
     emit("CHEATING CHECK")
     emit("=" * 60)
 
-    cheating_issues = check_cheating(filepath)
+    cheating_issues = check_cheating(filepath, level=args.level)
     real_issues = [i for i in cheating_issues if not i[1].startswith("WARNING:")]
     warnings = [i for i in cheating_issues if i[1].startswith("WARNING:")]
 
@@ -284,23 +310,36 @@ def main():
     if tlapm_passed:
         with open(filepath, 'r') as f:
             cur_lines = f.read().split('\n')
-        main_content = get_main_version(filepath)
-        if main_content:
-            main_lines = main_content.split('\n')
-            po_line = find_proof_obvious_line(main_lines)
-            if po_line is not None:
-                proof_section = '\n'.join(cur_lines[po_line:])
-                clean = strip_comments(proof_section)
-                for ci in detect_empty_proof(clean):
-                    real_issues.append((po_line + (ci.line or 0), ci.description))
-                for ci in detect_zero_total_obligations(tlapm_output):
-                    real_issues.append((0, ci.description))
-                for ci in detect_missing_proof(main_lines, cur_lines, po_line):
-                    real_issues.append((ci.line or 0, ci.description))
 
-        # Check --summary for missing proofs (bare QED, etc.)
+        if args.level == 1:
+            # L1: PROOF OBVIOUS in main is the boundary; slice current at the
+            # same index because the preamble is required to be unchanged.
+            main_content = get_main_version(filepath)
+            if main_content:
+                main_lines = main_content.split('\n')
+                po_line = find_proof_obvious_line(main_lines)
+                if po_line is not None:
+                    proof_section = '\n'.join(cur_lines[po_line:])
+                    clean = strip_comments(proof_section)
+                    for ci in detect_empty_proof(clean):
+                        real_issues.append((po_line + (ci.line or 0), ci.description))
+                    for ci in detect_zero_total_obligations(tlapm_output):
+                        real_issues.append((0, ci.description))
+                    for ci in detect_missing_proof(main_lines, cur_lines, po_line):
+                        real_issues.append((ci.line or 0, ci.description))
+        else:
+            # L2: the agent may grow the preamble (new lemmas above target),
+            # so there's no stable boundary. Scan the whole file; the bare-QED
+            # check via --summary below catches what detect_missing_proof did.
+            clean = strip_comments('\n'.join(cur_lines))
+            for ci in detect_empty_proof(clean):
+                real_issues.append((ci.line or 0, ci.description))
+            for ci in detect_zero_total_obligations(tlapm_output):
+                real_issues.append((0, ci.description))
+
+        # --summary missing-proofs check is shared (target theorem is still
+        # the last THEOREM/LEMMA in the file for both levels).
         if summary_output:
-            # Find target theorem line: last THEOREM/LEMMA in the file
             target_line = None
             for li, l in enumerate(cur_lines):
                 if re.match(r'^(THEOREM|LEMMA|COROLLARY|PROPOSITION)\b', l.strip()):
