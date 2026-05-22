@@ -386,11 +386,24 @@ def parse_theorems(lines):
 
                 j += 1
 
-        stmt_end = (proof_start - 1) if proof_start is not None and proof_start > stmt_start else stmt_start
-
         if proof_start is not None:
+            stmt_end = (proof_start - 1) if proof_start > stmt_start else stmt_start
             proof_end = find_proof_end(lines, proof_start)
         else:
+            # No proof body in source — the forward scan stopped at `j` (the next
+            # top-level declaration or end of module). A theorem's multi-line
+            # statement is its keyword line plus any *indented* continuation
+            # lines (TLA+ uses indentation to denote line continuation). Blank
+            # lines and comment blocks (col-0) between this theorem and the
+            # next decl belong to the next decl, not to this one.
+            stmt_end = stmt_start
+            for k in range(stmt_start + 1, j):
+                line = lines[k]
+                if not line.strip():
+                    continue  # blank line — not part of statement
+                if not line[0].isspace():
+                    break  # col-0 line (comment block or other) — not a continuation
+                stmt_end = k
             proof_end = stmt_end
 
         # Include all theorems (even OMITTED/OBVIOUS) so generate_benchmark_file
@@ -549,11 +562,15 @@ def strip_all_proofs(lines, theorems):
         if found_thm is not None:
             thm = theorems[found_thm]
             end = thm.proof_end if thm.proof_end is not None else thm.statement_end
-            if not thm.has_proof:
-                # Already OMITTED/OBVIOUS — copy verbatim
+            if not thm.has_proof and thm.proof_start is not None:
+                # Source already has explicit OMITTED/OBVIOUS — copy verbatim
                 for li in range(thm.statement_start, end + 1):
                     result.append(lines[li])
             else:
+                # Either has a real proof (which we strip) OR has no proof at all
+                # (in which case we still need to mark it OMITTED so the file parses
+                # as a valid TLAPS module — bare THEOREM without proof obligates
+                # checker to either accept or reject it).
                 stmt_lines = get_theorem_statement_lines(lines, thm)
                 result.extend(stmt_lines)
                 result.append('  PROOF OMITTED')
