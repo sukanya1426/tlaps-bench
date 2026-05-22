@@ -39,7 +39,9 @@ SANY_DUMP = os.path.join(PROJECT_ROOT, 'src', 'dataset', 'sany-dump', 'run.sh')
 
 # Reuse L1's proof-stripping logic for dependency .tla copies.
 sys.path.insert(0, os.path.join(PROJECT_ROOT, 'src', 'dataset', 'level1'))
-from generate import parse_theorems, strip_all_proofs  # noqa: E402
+from generate import (  # noqa: E402
+    parse_theorems, strip_all_proofs, parse_extends, parse_instances, STDLIB_MODULES,
+)
 
 KEYWORD_PATTERN = re.compile(r'^\s*(THEOREM|LEMMA|AXIOM|COROLLARY|PROPOSITION)\b')
 MODULE_HEADER = re.compile(r'^(-+\s*MODULE\s+)(\w+)(\s*-+)')
@@ -101,13 +103,19 @@ def find_top_level(theorems, spec_formulas):
 
 
 def target_theorem_name(theorem):
-    """Pick a name string used for the benchmark filename."""
+    """Pick a name string used for the benchmark filename.
+
+    Returns (name, was_sanitized). If the RHS primary name carries an INSTANCE
+    namespace separator `!` (e.g. `V!Spec`), it is replaced with `_` because
+    `!` is not legal in a TLA+ module identifier.
+    """
     if theorem['name']:
-        return theorem['name']
+        return theorem['name'], False
     rhs = theorem['shape'].get('rhs_primary_name')
     if rhs:
-        return rhs
-    return f"line{theorem['loc']['line_start']}"
+        sanitized = rhs.replace('!', '_')
+        return sanitized, sanitized != rhs
+    return f"line{theorem['loc']['line_start']}", False
 
 
 def apply_edits(lines, edits):
@@ -140,10 +148,20 @@ def build_benchmark(source_lines, dump, target_thm, benchmark_module_name):
     target_id = id(target_thm)
     for t in dump['theorems']:
         if id(t) == target_id:
-            # Replace the target's proof with `PROOF OBVIOUS`.
             ploc = t.get('proof_loc')
             if ploc and ploc.get('line_start', -1) > 0:
+                # Replace the target's proof body with `PROOF OBVIOUS`.
                 edits.append((ploc['line_start'], ploc['line_end'], 'PROOF OBVIOUS\n'))
+            else:
+                # Source THEOREM has no proof body at all (e.g. PConProof.tla L505).
+                # Keep the statement and append `PROOF OBVIOUS` so the benchmark
+                # presents a fill-in-the-proof obligation rather than a bare claim.
+                loc = t['loc']
+                end_line = loc['line_end']
+                last_line = source_lines[end_line - 1]
+                if not last_line.endswith('\n'):
+                    last_line = last_line + '\n'
+                edits.append((end_line, end_line, last_line + 'PROOF OBVIOUS\n'))
         else:
             # Delete other theorems/lemmas entirely.
             loc = t['loc']
@@ -161,34 +179,66 @@ def build_benchmark(source_lines, dump, target_thm, benchmark_module_name):
     return ''.join(out_lines)
 
 
-def copy_instance_deps(dump, source_path, out_dir):
-    """For each INSTANCE in the dump, copy the target .tla into out_dir with
-    proofs stripped. Returns list of copied basenames."""
-    src_dir = os.path.dirname(os.path.abspath(source_path))
-    copied = []
+def _gather_local_deps(start_mods, src_dir):
+    """Transitively collect local-module deps (EXTENDS + INSTANCE) starting
+    from `start_mods`. Standard-library modules are excluded.
+
+    Returns a list of (module_name, .tla path) pairs in BFS discovery order.
+    """
+    out = []
     seen = set()
-    for inst in dump['instances']:
-        mod = inst.get('module')
-        if not mod or mod in seen:
+    queue = list(start_mods)
+    while queue:
+        mod = queue.pop(0)
+        if not mod or mod in seen or mod in STDLIB_MODULES:
             continue
         dep_path = os.path.join(src_dir, f"{mod}.tla")
         if not os.path.isfile(dep_path):
             continue
         seen.add(mod)
+        out.append((mod, dep_path))
+        with open(dep_path, encoding='utf-8') as f:
+            dep_content = f.read()
+        for ext in parse_extends(dep_content):
+            if ext not in STDLIB_MODULES and ext not in seen:
+                queue.append(ext)
+        for _, inst_mod in parse_instances(dep_content):
+            if inst_mod not in seen:
+                queue.append(inst_mod)
+    return out
+
+
+def copy_deps(dump, source_path, out_dir):
+    """Copy every local-module dep of `source_path` into `out_dir`, with all
+    proofs stripped to PROOF OMITTED. Covers both EXTENDS (e.g. EuclidEx -> GCD)
+    and INSTANCE (e.g. Paxos -> Consensus) references, transitively.
+
+    Returns the list of copied basenames.
+    """
+    src_dir = os.path.dirname(os.path.abspath(source_path))
+    direct_deps = []
+    for ext in dump.get('extends', []):
+        if ext not in STDLIB_MODULES:
+            direct_deps.append(ext)
+    for inst in dump.get('instances', []):
+        mod = inst.get('module')
+        if mod:
+            direct_deps.append(mod)
+
+    copied = []
+    for mod, dep_path in _gather_local_deps(direct_deps, src_dir):
         with open(dep_path, encoding='utf-8') as f:
             dep_text = f.read()
         dep_lines = dep_text.split('\n')
         dep_thms = parse_theorems(dep_lines)
+        dest = os.path.join(out_dir, os.path.basename(dep_path))
         if dep_thms:
             stripped = strip_all_proofs(dep_lines, dep_thms)
-            dest = os.path.join(out_dir, os.path.basename(dep_path))
             with open(dest, 'w', encoding='utf-8') as f:
                 f.write(stripped if stripped.endswith('\n') else stripped + '\n')
-            copied.append(os.path.basename(dep_path))
         else:
-            dest = os.path.join(out_dir, os.path.basename(dep_path))
             shutil.copy2(dep_path, dest)
-            copied.append(os.path.basename(dep_path))
+        copied.append(os.path.basename(dep_path))
     return copied
 
 
@@ -260,7 +310,13 @@ def process_file(source_path, audit_writer, output_root, module_subdir=None):
                 f"{target_thm['loc']['line_start']} — filename derived from rhs "
                 f"primary name `{target_thm['shape'].get('rhs_primary_name')}`\n"
             )
-        thm_name = target_theorem_name(target_thm)
+        thm_name, sanitized = target_theorem_name(target_thm)
+        if sanitized:
+            audit_writer.write(
+                f"[level2-audit] {source_path}: rhs primary name "
+                f"`{target_thm['shape'].get('rhs_primary_name')}` contains `!` "
+                f"(INSTANCE namespace separator); sanitized to `{thm_name}` for module identifier\n"
+            )
         bench_module_name = f"{base_module}_{thm_name}"
         # Disambiguate filename collisions (e.g. Peterson.tla has 3 unnamed
         # `THEOREM Spec => []MutualExclusion` lines that all map to the same name).
@@ -276,7 +332,7 @@ def process_file(source_path, audit_writer, output_root, module_subdir=None):
         bench_text = build_benchmark(source_lines, dump, target_thm, bench_module_name)
         with open(bench_file, 'w', encoding='utf-8') as f:
             f.write(bench_text)
-        copy_instance_deps(dump, source_path, out_dir)
+        copy_deps(dump, source_path, out_dir)
         count += 1
         print(f"  generated: {os.path.relpath(bench_file, PROJECT_ROOT)}")
 
