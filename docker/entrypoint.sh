@@ -3,7 +3,7 @@ set -e
 
 # ============================================================
 # Network firewall: whitelist-only outbound access
-# Only allow DNS + OpenAI API + Azure OpenAI API
+# Only allow DNS + OpenAI / Azure OpenAI / Anthropic API
 # Everything else (GitHub, Google, etc.) is blocked
 # ============================================================
 
@@ -18,8 +18,8 @@ iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
 iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT
 
 # Whitelist API domains by resolving their IPs
-# OpenAI API
-API_HOSTS="api.openai.com"
+# OpenAI API (codex backend) + Anthropic API (claude_code backend)
+API_HOSTS="api.openai.com api.anthropic.com"
 
 # Azure OpenAI (if AZURE_OPENAI_HOST is set)
 if [ -n "${AZURE_OPENAI_HOST:-}" ]; then
