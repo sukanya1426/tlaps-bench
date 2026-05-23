@@ -30,6 +30,11 @@ class CodexBackend(AgentBackend):
         ]
 
     def required_env(self) -> list[str]:
+        # Accept Azure routing as an alternative: codex respects
+        # AZURE_OPENAI_API_KEY when ~/.codex/config.toml selects an azure
+        # provider. If Azure is configured, no other env var is required.
+        if os.environ.get("AZURE_OPENAI_API_KEY"):
+            return []
         return ["OPENAI_API_KEY"]
 
     def firewall_hosts(self) -> list[str]:
