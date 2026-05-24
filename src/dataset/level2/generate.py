@@ -169,6 +169,29 @@ def _has_manual_proof(target_thm, source_lines):
     return body not in ('OMITTED', 'OBVIOUS')
 
 
+def _proof_has_omitted_substep(target_thm, source_lines):
+    """Return True iff the source proof admits a sub-step with OMITTED.
+
+    A multi-step proof whose top level is structured but which contains an
+    `OMITTED` leaf anywhere (e.g. PaxosProof.tla's `THEOREM Spec => []StructOK3`,
+    whose inductive step `<1>2` is `PROOF OMITTED`) was NEVER actually verified
+    by tlapm — the admitted step papers over a gap, and in the StructOK3 case
+    the statement is in fact false (TLC finds a counterexample). Such theorems
+    must not become benchmarks: there is no ground truth that the goal is even
+    provable, so an honest agent that reports "unprovable" gets marked wrong
+    while an unsound proof gets marked right.
+
+    `_has_manual_proof` already rejects a proof that is *entirely* OMITTED; this
+    catches the subtler case of an OMITTED leaf inside an otherwise-structured
+    proof. Matches the OMITTED keyword on word boundaries.
+    """
+    ploc = target_thm.get('proof_loc')
+    if not (ploc and ploc.get('line_start', -1) > 0):
+        return False
+    body = ''.join(source_lines[ploc['line_start'] - 1 : ploc['line_end']])
+    return re.search(r'\bOMITTED\b', body) is not None
+
+
 def target_theorem_name(theorem):
     """Pick a name string used for the benchmark filename.
 
@@ -391,15 +414,23 @@ def process_file(source_path, audit_writer, output_root, module_subdir=None,
     survivors = []
     for entry in top_level:
         target_thm = entry[0]
-        if _has_manual_proof(target_thm, source_lines):
-            survivors.append(entry)
-        else:
-            line = target_thm['loc']['line_start']
-            name = target_thm['name'] or f"<unnamed L{line}>"
+        line = target_thm['loc']['line_start']
+        name = target_thm['name'] or f"<unnamed L{line}>"
+        if not _has_manual_proof(target_thm, source_lines):
             audit_writer.write(
                 f"[level2-audit] {source_path}: top-level THEOREM {name} at line "
                 f"{line} has no manual TLAPS proof body — skipped (filter A)\n"
             )
+        elif _proof_has_omitted_substep(target_thm, source_lines):
+            # Structured proof, but an OMITTED leaf means the goal was never
+            # actually verified — and may be false (e.g. StructOK3). Drop it.
+            audit_writer.write(
+                f"[level2-audit] {source_path}: top-level THEOREM {name} at line "
+                f"{line} has an OMITTED sub-step — goal never verified, may be "
+                f"unprovable — skipped (filter A')\n"
+            )
+        else:
+            survivors.append(entry)
     top_level = survivors
 
     # Filter B — within-file exact-text statement dedup. Keep first by line.
