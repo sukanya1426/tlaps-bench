@@ -24,6 +24,10 @@ class ClaudeCodeBackend(AgentBackend):
         # stream-json requires --verbose in non-interactive (--print) mode.
         # --no-session-persistence keeps benchmark runs out of the user's
         # /resume history (193 entries per full run otherwise).
+        # --effort max runs the highest reasoning budget (levels:
+        # low|medium|high|xhigh|max) so the comparison against Codex's
+        # xhigh reasoning is apples-to-apples; without it the CLI uses a
+        # lighter default.
         return [
             "claude",
             "--print",
@@ -31,6 +35,7 @@ class ClaudeCodeBackend(AgentBackend):
             "--no-session-persistence",
             "--output-format", "stream-json",
             "--verbose",
+            "--effort", "max",
             "--model", self.model,
         ]
 
