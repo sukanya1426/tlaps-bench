@@ -432,8 +432,8 @@ def main():
     parser.add_argument('--filter', default=None, help='Only run benchmarks matching pattern')
     parser.add_argument('--timeout', type=int, default=7200,
                         help='Agent timeout per benchmark in seconds (default: 7200; 0 = no limit)')
-    parser.add_argument('--check-timeout', type=int, default=120,
-                        help='Checker timeout per benchmark in seconds (default: 120)')
+    parser.add_argument('--check-timeout', type=int, default=600,
+                        help='Checker timeout per benchmark in seconds (default: 600)')
     parser.add_argument('--output-dir', default=None, help='Output directory')
     # Quota gate (claude_code + Claude Max subscription only). Pauses before
     # launching an agent when subscription usage is over threshold, sleeping

@@ -32,6 +32,7 @@ import os
 import sys
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
 import argparse
@@ -44,6 +45,37 @@ from cheating_detection import (
     detect_zero_total_obligations, detect_dependency_modification,
     detect_missing_proof, detect_missing_proofs_summary, strip_comments,
 )
+
+
+def run_killgroup(cmd, timeout, cwd):
+    """Run `cmd` with a wall-clock `timeout`, killing the ENTIRE process group
+    on timeout. Returns (stdout, stderr, returncode); re-raises
+    subprocess.TimeoutExpired after cleanup.
+
+    tlapm spawns its backend solvers (z3, cvc4, zenon, ...) as separate
+    processes. subprocess.run's timeout kills only the direct child (tlapm),
+    orphaning the solvers — they keep running, steal CPU, and accumulate
+    across runs, which in turn slows every later verification into spurious
+    timeouts. start_new_session=True puts tlapm in its own process group; on
+    timeout we SIGKILL the whole group so no solver survives.
+    """
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        cwd=cwd, start_new_session=True,
+    )
+    try:
+        out, err = proc.communicate(timeout=timeout)
+        return out, err, proc.returncode
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+        try:
+            proc.communicate(timeout=10)
+        except Exception:
+            pass
+        raise
 
 
 def find_tlapm():
@@ -204,7 +236,7 @@ def main():
                         help='Benchmark level — controls cheating rules (default: 1)')
     parser.add_argument('--tlapm', default=None, help='Path to tlapm binary')
     parser.add_argument('--tlapm-lib', default=None, help='Path to tlapm lib directory')
-    parser.add_argument('--timeout', type=int, default=120, help='Timeout in seconds')
+    parser.add_argument('--timeout', type=int, default=600, help='Timeout in seconds')
     parser.add_argument('--output', '-o', default=None, help='Write results to this file (default: <input>.result)')
     args = parser.parse_args()
 
@@ -264,12 +296,9 @@ def main():
 
         cmd = [tlapm_path, '-I', tlapm_lib, tmp_file]
         try:
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=args.timeout,
-                cwd=tmp_dir
-            )
-            tlapm_output = result.stdout + result.stderr
-            tlapm_exit = result.returncode
+            out, err, rc = run_killgroup(cmd, args.timeout, tmp_dir)
+            tlapm_output = out + err
+            tlapm_exit = rc
         except subprocess.TimeoutExpired:
             tlapm_output = f"TIMEOUT after {args.timeout}s"
             tlapm_exit = -1
@@ -285,12 +314,11 @@ def main():
         summary_output = ""
         if tlapm_passed:
             try:
-                summary_result = subprocess.run(
+                out, err, _ = run_killgroup(
                     [tlapm_path, '-I', tlapm_lib, '--summary', tmp_file],
-                    capture_output=True, text=True, timeout=30,
-                    cwd=tmp_dir
+                    30, tmp_dir,
                 )
-                summary_output = summary_result.stdout + summary_result.stderr
+                summary_output = out + err
             except Exception:
                 pass
     finally:
