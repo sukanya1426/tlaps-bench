@@ -1,0 +1,3 @@
+[submodule "tlaps-bench-private"]
+	path = tlaps-bench-private
+	url = git@github.com:specula-org/tlaps-bench-private.git
