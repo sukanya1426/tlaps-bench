@@ -110,7 +110,6 @@ Spec == Init /\ [][Next]_vars
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
------------------------------------------------------------------------------
 (***************************************************************************)
 (* The definition of PCorrect is the same as in module Simple.             *)
 (***************************************************************************)
@@ -143,4 +142,13 @@ Inv ==  /\ TypeOK
 THEOREM Correctness == Spec => []PCorrect
 PROOF OBVIOUS
 
+(***************************************************************************)
+(* As for the specification in module Simple, the proof can be shortened   *)
+(* avoiding the decomposition of step <1>2. In order to find the witness   *)
+(* for the existential quantifier, the proof of step <1>1 requires a small *)
+(* hint showing that 0 is a suitable value.                                *)
+(***************************************************************************)
 ======================================       
+\* Modification History
+\* Last modified Tue May 14 07:18:15 PDT 2019 by lamport
+\* Created Mon Apr 15 16:25:14 PDT 2019 by lamport

@@ -6,7 +6,7 @@
 (* proof language.                                                         *)
 (***************************************************************************)
 
-EXTENDS Naturals, TLAPS
+EXTENDS AddTwo
 
 (****************************************************************************
 --algorithm Increase {
@@ -18,16 +18,6 @@ EXTENDS Naturals, TLAPS
 }
 ****************************************************************************)
 \* BEGIN TRANSLATION (chksum(pcal) = "b4b07666" /\ chksum(tla) = "8adfa002")
-VARIABLE x
-
-vars == << x >>
-
-Init == (* Global variables *)
-        /\ x = 0
-
-Next == x' = x + 2
-
-Spec == Init /\ [][Next]_vars
 
 \* END TRANSLATION 
 
@@ -36,4 +26,9 @@ TypeOK == x \in Nat
 THEOREM TypeInvariant == Spec => []TypeOK
 PROOF OBVIOUS
 
+a|b == \E c \in Nat : a*c = b
+
+Even == 2|x
+
 =============================================================================
+

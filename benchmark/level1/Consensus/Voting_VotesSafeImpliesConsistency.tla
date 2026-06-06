@@ -1,6 +1,5 @@
 ------------------------------- MODULE Voting_VotesSafeImpliesConsistency -------------------------------
 EXTENDS FiniteSets, TLAPS, Integers
------------------------------------------------------------------------------
 CONSTANT Value, Acceptor, Quorum
 
 ASSUME QuorumAssumption == 
@@ -8,15 +7,13 @@ ASSUME QuorumAssumption ==
     /\ \A Q1, Q2 \in Quorum : Q1 \cap Q2 # {}
 
 THEOREM QuorumNonEmpty == \A Q \in Quorum : Q # {}
-  PROOF OMITTED
+PROOF OMITTED
 
 Ballot == Nat
------------------------------------------------------------------------------
 VARIABLES votes, maxBal
 
 TypeOK == /\ votes \in [Acceptor -> SUBSET (Ballot \X Value)]
           /\ maxBal \in [Acceptor -> Ballot \cup {-1}]
------------------------------------------------------------------------------
 VotedFor(a, b, v) == <<b, v>> \in votes[a]
 
 DidNotVoteAt(a, b) == \A v \in Value : ~ VotedFor(a, b, v)
@@ -26,7 +23,6 @@ ShowsSafeAt(Q, b, v) ==
   /\ \E c \in -1..(b-1) :
       /\ (c # -1) => \E a \in Q : VotedFor(a, c, v)
       /\ \A d \in (c+1)..(b-1), a \in Q : DidNotVoteAt(a, d)
------------------------------------------------------------------------------
 Init == 
     /\ votes = [a \in Acceptor |-> {}]
     /\ maxBal = [a \in Acceptor |-> -1]
@@ -44,21 +40,18 @@ VoteFor(a, b, v) ==
     /\ \E Q \in Quorum : ShowsSafeAt(Q, b, v) \* safe to vote
     /\ votes' = [votes EXCEPT ![a] = votes[a] \cup {<<b, v>>}] \* vote
     /\ maxBal' = [maxBal EXCEPT ![a] = b] \* make promise
------------------------------------------------------------------------------
 Next == 
     \E a \in Acceptor, b \in Ballot : 
         \/ IncreaseMaxBal(a, b)
         \/ \E v \in Value : VoteFor(a, b, v)
 
 Spec == Init /\ [][Next]_<<votes, maxBal>>
------------------------------------------------------------------------------
 ChosenAt(b, v) == 
     \E Q \in Quorum : \A a \in Q : VotedFor(a, b, v)
 
 chosen == {v \in Value : \E b \in Ballot : ChosenAt(b, v)}
 
 Consistency == chosen = {} \/ \E v \in Value : chosen = {v} \* Cardinality(chosen) <= 1
----------------------------------------------------------------------------
 CannotVoteAt(a, b) == 
     /\ maxBal[a] > b
     /\ DidNotVoteAt(a, b)
@@ -83,22 +76,21 @@ OneValuePerBallot ==
         VotedFor(a1, b, v1) /\ VotedFor(a2, b, v2) => (v1 = v2)
 
 Inv == TypeOK /\ VotesSafe /\ OneValuePerBallot
------------------------------------------------------------------------------
 THEOREM AllSafeAtZero == \A v \in Value : SafeAt(0, v)
-  PROOF OMITTED
+PROOF OMITTED
 
 THEOREM ChoosableThm ==
           \A b \in Ballot, v \in Value :
              ChosenAt(b, v) => NoneOtherChoosableAt(b, v)
-  PROOF OMITTED
+PROOF OMITTED
 
 THEOREM OneVoteThm == OneValuePerBallot => OneVote
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 THEOREM VotesSafeImpliesConsistency ==
    ASSUME VotesSafe, OneVote, chosen # {}
    PROVE  \E v \in Value : chosen = {v}
 PROOF OBVIOUS
+
+C == INSTANCE Consensus \* WITH chosen <- chosen
 
 =============================================================================

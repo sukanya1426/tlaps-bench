@@ -1,4 +1,4 @@
------------------------------ MODULE Consensus_InductiveInvariance ------------------------------ 
+----------------------------- MODULE Consensus_InductiveInvariance ------------------------------
 (***************************************************************************)
 (* The consensus problem requires a set of processes to choose a single    *)
 (* value.  This module specifies the problem by specifying exactly what    *)
@@ -92,7 +92,6 @@ Next == /\ chosen = {}
 Spec == Init /\ [][Next]_vars
 
 \***** END TRANSLATION
------------------------------------------------------------------------------
 (***************************************************************************)
 (* We now prove the safety property that at most one value is chosen.  We  *)
 (* first define the type-correctness invariant TypeOK, and then define Inv *)
@@ -173,4 +172,72 @@ LEMMA InductiveInvariance ==
            Inv /\ [Next]_vars => Inv'
 PROOF OBVIOUS
 
+(***************************************************************************)
+(* TLAPS does not yet handle temporal logic reasoning.  Therefore, proofs  *)
+(* of temporal steps are omitted.  However, we indicate in comments what   *)
+(* we expect the proofs to look like when TLAPS does prove temporal        *)
+(* formulas.                                                               *)
+(***************************************************************************)
+
+(***************************************************************************)
+(* We now define LiveSpec to be the algorithm's specification with the     *)
+(* added fairness condition of weak fairness of the next-state relation,   *)
+(* which asserts that execution does not stop if some action is enabled.   *)
+(* The temporal formula Success asserts that some value is eventually      *)
+(* chosen.  Below, we prove that LiveSpec implies Success This means that, *)
+(* in every behavior satisfying LiveSpec, some value is chosen.            *)
+(***************************************************************************)
+LiveSpec == Spec /\ WF_vars(Next)
+Success == <>(chosen # {})
+
+(***************************************************************************)
+(* For liveness, we need to assume that there exists at least one value.   *)
+(***************************************************************************)
+ASSUME ValueNonempty == Value # {}
+
+(***************************************************************************)
+(* TLAPS does not yet reason about ENABLED.  Therefore, we must omit all   *)
+(* proofs that involve ENABLED formulas.  To perform as much of the proof  *)
+(* as possible, as much as possible we restrict the use of an ENABLED      *)
+(* expression to a step asserting that it equals its definition.  ENABLED  *)
+(* A is true of a state s iff there is a state t such that the step s -> t *)
+(* satisfies A.  It follows from this semantic definition that ENABLED A   *)
+(* equals the formula obtained by                                          *)
+(*                                                                         *)
+(*  1. Expanding all definitions of defined symbols in A until all primes  *)
+(*     are priming variables.                                              *)
+(*                                                                         *)
+(*  2. For each primed variable, replacing every instance of that primed   *)
+(*     variable by a new symbol (the same symbol for each primed           *)
+(*     variable).                                                          *)
+(*                                                                         *)
+(*  3. Existentially quantifying over those new symbols.                   *)
+(***************************************************************************)
+
+(***************************************************************************)
+(* Here is our proof that Livespec implies Success.  It uses the standard  *)
+(* TLA proof rules.  For example RuleWF1 is defined in the TLAPS module to *)
+(* be the rule WF1 discussed in                                            *)
+(*                                                                         *)
+(* `. AUTHOR  = "Leslie Lamport",                                          *)
+(*    TITLE   = "The Temporal Logic of Actions",                           *)
+(*    JOURNAL = toplas,                                                    *)
+(*    volume  = 16,                                                        *)
+(*    number  = 3,                                                         *)
+(*    YEAR    = 1994,                                                      *)
+(*    month   = may,                                                       *)
+(*    PAGES   = "872--923"         .'                                      *)
+(*                                                                         *)
+(* PTL stands for propositional temporal logic reasoning.  We expect that, *)
+(* when TLAPS handles temporal reasoning, it will use a decision procedure *)
+(* for PTL.                                                                *)
+(***************************************************************************)
+(***************************************************************************)
+(* The following theorem is used in the refinement proof in module         *)
+(* VoteProof.                                                              *)
+(***************************************************************************)
 =============================================================================
+\* Modification History
+\* Last modified Sat Nov 16 22:17:07 CST 2019 by hengxin
+\* Last modified Tue Feb 14 13:35:49 PST 2012 by lamport
+\* Last modified Mon Feb 07 14:46:59 PST 2011 by lamport

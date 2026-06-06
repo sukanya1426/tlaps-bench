@@ -10,39 +10,18 @@ No state flags (such as "Prepare", "Wait-Prepare", "Accept", "Wait-Accept"
 are needed.
 - Choose value from a quorum in Accept.
 *)
-EXTENDS Integers, FiniteSets, TLAPS
------------------------------------------------------------------------------
-Max(m, n) == IF m > n THEN m ELSE n
-Injective(f) == \A a, b \in DOMAIN f: (a # b) => (f[a] # f[b])
------------------------------------------------------------------------------
-CONSTANTS
-    Participant,  \* the set of partipants
-    Value         \* the set of possible input values for Participant to propose
-
-None == CHOOSE b : b \notin Value
+EXTENDS TPaxosWithProof
 
 LEMMA NoneNotAValue == None \notin Value
-  PROOF OMITTED
+PROOF OMITTED
 
-NP == Cardinality(Participant) \* number of p \in Participants
-
-Quorum == {Q \in SUBSET Participant : Cardinality(Q) * 2 >= NP + 1}
-ASSUME QuorumAssumption ==
-    /\ \A Q \in Quorum : Q \subseteq Participant
-    /\ \A Q1, Q2 \in Quorum : Q1 \cap Q2 # {}
-
-Ballot == Nat
 AllBallot == Ballot \cup {-1}
 AllValue == Value \cup {None}
 MaxBallot == Cardinality(Ballot) - 1
 
-PIndex == CHOOSE f \in [Participant -> 1 .. NP] : Injective(f)
-Bals(p) == {b \in Ballot : b % NP = PIndex[p] - 1} \* allocate ballots for each p \in Participant
------------------------------------------------------------------------------
 State == [maxBal: Ballot \cup {-1},
          maxVBal: Ballot \cup {-1}, maxVVal: Value \cup {None}]
 
-InitState == [maxBal |-> -1, maxVBal |-> -1, maxVVal |-> None]
 (*
 For simplicity, in this specification, we choose to send the complete state
 of a participant each time. When receiving such a message, the participant
@@ -53,12 +32,6 @@ Message == [from: Participant,
             state: [Participant -> [maxBal: Ballot \cup {-1},
                                     maxVBal: Ballot \cup {-1},
                                     maxVVal: Value \cup {None}]]]
------------------------------------------------------------------------------
-VARIABLES
-    state,  \* state[p][q]: the state of q \in Participant from the view of p \in Participant
-    msgs    \* the set of messages that have been sent
-
-vars == <<state, msgs>>
 
 TypeOK ==
     /\ state \in [Participant -> [Participant -> State]]
@@ -69,19 +42,9 @@ TypeOK ==
 \*            /\ state[p][q].maxVVal \in AllValue
     /\ msgs \subseteq Message
 
-Send(m) == msgs' = msgs \cup {m}
------------------------------------------------------------------------------
-Init ==
-    /\ state = [p \in Participant |-> [q \in Participant |-> InitState]]
-    /\ msgs = {}
 (*
 p \in Participant starts the prepare phase by issuing a ballot b \in Ballot.
 *)
-Prepare(p, b) ==
-    /\ b \in Bals(p)
-    /\ state[p][p].maxBal < b
-    /\ state' = [state EXCEPT ![p][p].maxBal = b]
-    /\ Send([from |-> p, to |-> Participant \ {p}, state |-> state'[p]])
 (*
 q \in Participant updates its own state state[q] according to the actual state
 pp of p \in Participant extracted from a message m \in Message it receives.
@@ -89,29 +52,6 @@ This is called by OnMessage(q).
 Note: pp is m.state[p]; it may not be equal to state[p][p] at the time
 UpdateState is called.
 *)
-UpdateState(q, p, pp) ==
-    LET maxB == Max(state[q][q].maxBal, pp.maxBal)
-        maxBV == IF (maxB <= pp.maxVBal)
-                    THEN pp.maxVBal
-                    ELSE state[q][q].maxVBal
-        maxVV == IF (maxB <= pp.maxVBal)
-                    THEN pp.maxVVal
-                    ELSE state[q][q].maxVVal
-       new_state_qq == [maxBal |-> maxB,
-                        maxVBal |-> maxBV,
-                        maxVVal |-> maxVV]
-       new_state_qp == [maxBal |->  Max(state[q][p].maxBal, pp.maxBal),
-                        maxVBal |-> Max(state[q][p].maxVBal, pp.maxVBal),
-                        maxVVal |-> (IF (state[q][p].maxVBal =< pp.maxVBal)
-                                        THEN pp.maxVVal
-                                        ELSE state[q][p].maxVVal)]
-    IN  state' =
-          [state EXCEPT
-              ![q] = [ state[q] EXCEPT
-                          ![q] = new_state_qq,
-                          ![p] = new_state_qp
-                      ]
-           ]
 \*        [state EXCEPT
 \*            ![q] = [state[q] EXCEPT
 \*                       ![q] = [state[q][q] EXCEPT
@@ -154,56 +94,12 @@ UpdateState(q, p, pp) ==
 (*
 q \in Participant receives and processes a message in Message.
 *)
-OnMessage(q) ==
-    \E m \in msgs :
-        /\ q \in m.to
-        /\ LET p == m.from
-           IN  UpdateState(q, p, m.state[p])
-        /\ LET qm == [from |-> m.from, to |-> m.to \ {q}, state |-> m.state] \*remove q from to
-               nm == [from |-> q, to |-> {m.from}, state |-> state'[q]] \*new message to reply
-           IN  IF \/ m.state[q].maxBal < state'[q][q].maxBal
-                  \/ m.state[q].maxVBal < state'[q][q].maxVBal
-                 THEN msgs' = msgs \cup {nm}
-                 ELSE UNCHANGED msgs
 \*               THEN msgs' = (msgs \ {m}) \cup {qm, nm}
 \*               ELSE msgs' = (msgs \ {m}) \cup {qm}
 (*
 p \in Participant starts the accept phase by issuing the ballot b \in Ballot
 with value v \in Value.
 *)
-Accept(p, b, v) ==
-    /\ b \in Bals(p)
-    /\ ~ \E m \in msgs: m.state[m.from].maxBal = b /\ m.state[m.from].maxVBal = b
-    /\ state[p][p].maxBal = b \*corresponding the first conjunction in Voting
-    /\ state[p][p].maxVBal # b \* correspongding the second conjunction in Voting
-    /\ \E Q \in Quorum :
-       /\ \A q \in Q : state[p][q].maxBal = b
-       \* pick the value from the quorum
-       /\ \/ \A q \in Q : state[p][q].maxVBal = -1 \* free to pick its own value
-\*          \/ \E q \in Q : \* v is the value with the highest maxVBal in the quorum
-\*                /\ state[p][q].maxVVal = v
-          \/ \E c \in 0..(b-1):
-              /\ \A r \in Q: state[p][r].maxVBal =< c
-              /\ \E r \in Q: /\ state[p][r].maxVBal = c
-                             /\ state[p][r].maxVVal = v
-\*                /\ \A r \in Q : state[p][q].maxVBal >= state[p][r].maxVBal
-    \*choose the value from all the local state
-\*    /\ \/ \A q \in Participant : state[p][q].maxVBal = -1 \* free to pick its own value
-\*       \/ \E q \in Participant : \* v is the value with the highest maxVBal
-\*            /\ state[p][q].maxVVal = v
-\*            /\ \A r \in Participant: state[p][q].maxVBal >= state[p][r].maxVBal
-\*    /\ state' = [state EXCEPT ![p][p].maxVBal = b,
-\*                              ![p][p].maxVVal = v]
-    /\ state' = [state EXCEPT ![p] = [state[p] EXCEPT
-                                        ![p] = [state[p][p] EXCEPT !.maxVBal = b,
-                                                                   !.maxVVal = v]]]
-    /\ Send([from |-> p, to |-> Participant \ {p}, state |-> state'[p]])
----------------------------------------------------------------------------
-Next == \E p \in Participant : \/ OnMessage(p)
-                               \/ \E b \in Ballot : \/ Prepare(p, b)
-                                                    \/ \E v \in Value : Accept(p, b, v)
-Spec == Init /\ [][Next]_vars
----------------------------------------------------------------------------
 VotedForIn(a, b, v) == \E m \in msgs:
                             /\ m.from = a
                             /\ m.state[a].maxBal = b
@@ -225,7 +121,6 @@ chosen == UNION {ChosenP(p) : p \in Participant}
 Consistency == \*Cardinality(chosen) <= 1
    \A v1, v2 \in Value: Chosen(v1) /\ Chosen(v2) => (v1 = v2)
 
----------------------------------------------------------------------------
 WontVoteIn(a, b) == /\ \A v \in Value: ~ VotedForIn(a, b, v)
                     /\ state[a][a].maxBal > b
 
@@ -234,7 +129,6 @@ SafeAt(b, v) ==
             \E Q \in Quorum:
                 \A a \in Q: VotedForIn(a, c, v) \/ WontVoteIn(a, c)
 
----------------------------------------------------------------------------
 MsgInv ==
     \A m \in msgs:
         LET p == m.from
@@ -277,18 +171,17 @@ AccInv ==
                               /\ m.state[q].maxVVal = state[a][q].maxVVal
 
 Inv == MsgInv /\ AccInv /\ TypeOK
---------------------------------------------------------------------------
 LEMMA VotedInv ==
         MsgInv /\ TypeOK =>
             \A a \in Participant, b \in Ballot, v \in Value:
                 VotedForIn(a, b, v) => SafeAt(b, v)
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA MaxBigger == \A a \in Ballot \cup {-1}, b \in Ballot: Max(a, b) >= a /\ Max(a, b) >= b
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA MaxTypeOK == \A a \in AllBallot, b \in Ballot: Max(a, b) \in Ballot
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA UpdateStateBiggerProperty ==
      ASSUME NEW q \in Participant, NEW p \in Participant, NEW pp \in
@@ -297,18 +190,18 @@ LEMMA UpdateStateBiggerProperty ==
                 UpdateState(q, p, pp), TypeOK
      PROVE  /\ state'[q][q].maxBal \in AllBallot
             /\ state'[q][q].maxBal >= state[q][q].maxBal
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA UpdateStateTypeOKProperty ==
      ASSUME NEW q \in Participant, NEW p \in Participant, NEW pp \in State,
                 UpdateState(q, p, pp), TypeOK
      PROVE state' \in [Participant -> [Participant -> State]]
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA OnMessageBiggerProperty ==
      ASSUME NEW q \in Participant, OnMessage(q), TypeOK
      PROVE  state'[q][q].maxBal >= state[q][q].maxBal
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA MsgNotLost == Next /\ TypeOK =>
         \A m \in msgs, b1 \in Ballot, p1 \in Participant, v1 \in Value:
@@ -317,23 +210,21 @@ LEMMA MsgNotLost == Next /\ TypeOK =>
                        /\ m.state[p1].maxVBal = b1
                        /\ m.state[p1].maxVVal = v1
                        => m \in msgs'
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA VotedOnce ==
         MsgInv => \A a1, a2 \in Participant, b \in Ballot, v1, v2 \in Value:
                 VotedForIn(a1, b, v1) /\ VotedForIn(a2, b, v2) => (v1 = v2)
-  PROOF OMITTED
-
---------------------------------------------------------------------------
+PROOF OMITTED
 
 LEMMA SafeAtStable == Inv /\ Next /\ TypeOK' =>
                             \A v \in Value, b \in Ballot:
                                SafeAt(b, v) => SafeAt(b, v)'
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA PrepareMsgInv == ASSUME NEW p \in Participant, NEW b \in Ballot, Prepare(p, b), Inv, TypeOK'
                         PROVE MsgInv'
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA UpdateStateViewValue ==
          ASSUME NEW q \in Participant, NEW p \in Participant, NEW m \in msgs, p = m.from, q \in m.to,
@@ -345,7 +236,7 @@ LEMMA UpdateStateViewValue ==
                   \/ /\ state'[q][p].maxBal = m.state[m.from].maxBal
                      /\ state'[q][p].maxVBal = m.state[m.from].maxVBal
                      /\ state'[q][p].maxVVal = m.state[m.from].maxVVal
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA UpdateStateValue ==
           ASSUME NEW q \in Participant, NEW p \in Participant, NEW pp \in State, pp.maxBal >= pp.maxVBal,
@@ -358,33 +249,54 @@ LEMMA UpdateStateValue ==
                      /\ state'[q][q].maxBal = pp.maxVBal
                /\ state'[q][q].maxBal >= state'[q][q].maxVBal
                /\ state'[q][q].maxVBal >= state[q][q].maxVBal
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA AcceptMsgInv == ASSUME NEW p \in Participant, NEW b \in Ballot, NEW v \in Value, Accept(p, b, v), Inv, TypeOK'
                        PROVE MsgInv'
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA UpdateStateMsgInv ==
     ASSUME NEW q \in Participant, NEW p \in Participant, NEW mm \in msgs, mm.from = p, Inv, q \in mm.to, Next,
            UpdateState(q, p, mm.state[p]), TypeOK', Send([from |-> q, to |-> {mm.from}, state |-> state'[q]])
      PROVE MsgInv'
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA OnMessageMsgInv == ASSUME NEW q \in Participant, OnMessage(q), Inv, TypeOK'
                           PROVE MsgInv'
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA OnMessageAccInv ==
     ASSUME NEW qq \in Participant, OnMessage(qq), Inv, TypeOK'
      PROVE AccInv'
-  PROOF OMITTED
-
---------------------------------------------------------------------------
+PROOF OMITTED
 THEOREM Invariant == Spec => []Inv
-  PROOF OMITTED
+PROOF OMITTED
 
---------------------------------------------------------------------------
 THEOREM Consistent == Spec => []Consistency
 PROOF OBVIOUS
+(*
+For checking Liveness
+WF(A): if A ever becomes enabled, then an A step will eventually occur-even
+if A remains enabled for only a fraction of a nanosecond and is never again
+enabled.
+Liveness in TPaxos: like paxos, there should be a single-leader to prapre
+and accept.
+*)
 
+LConstrain == /\ \E p \in Participant:
+                /\ MaxBallot \in Bals(p)
+                /\ WF_vars(Prepare(p, MaxBallot))
+                /\ \A v \in Value: WF_vars(Accept(p, MaxBallot, v))
+                /\ \E Q \in Quorum:
+                    /\ p \in Q
+                    /\ \A q \in Q: WF_vars(OnMessage(q))
+
+LSpec == Spec /\ LConstrain
+
+Liveness == <>(chosen # {})
 =============================================================================
+\* Modification History
+\* Last modified Thu Oct 29 15:28:07 CST 2020 by stary
+\* Last modified Wed Oct 14 16:39:25 CST 2020 by pure_
+\* Last modified Fri Oct 09 14:33:01 CST 2020 by admin
+\* Created Thu Jun 25 14:23:28 CST 2020 by admin

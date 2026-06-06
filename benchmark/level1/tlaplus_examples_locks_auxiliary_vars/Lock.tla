@@ -1,43 +1,14 @@
 --------------------------------- MODULE Lock ---------------------------------
 
-(*****************************************************************************)
-(* This module contains the specification of an abstract lock.               *)
-(* The proof for mutual exclusion is also detailed.                          *)
-(*****************************************************************************)
-
 EXTENDS Integers, TLAPS
 
-(*
---algorithm Lock{
-    variables lock = 1;
-    
-    macro Lock(l){
-      await l = 1;
-      l := 0;
-    }
-    
-    macro Unlock(l){
-      l := 1;
-    }
-  
-    process(proc \in 1..2){
-l0:   while(TRUE){
-        skip; \* non-critical section
-l1:     Lock(lock);
-cs:     skip; \* critical section
-l2:     Unlock(lock);
-      }
-    }
-}
-*)
-\* BEGIN TRANSLATION (chksum(pcal) = "f820ffbb" /\ chksum(tla) = "24b4f3dd")
 VARIABLES pc, lock
 
 vars == << pc, lock >>
 
 ProcSet == (1..2)
 
-Init == (* Global variables *)
+Init == 
         /\ lock = 1
         /\ pc = [self \in ProcSet |-> "l0"]
 
@@ -65,8 +36,6 @@ proc(self) == l0(self) \/ l1(self) \/ cs(self) \/ l2(self)
 Next == (\E self \in 1..2: proc(self))
 
 Spec == Init /\ [][Next]_vars
-
-\* END TRANSLATION 
 
 TypeOK ==
   /\ lock \in {0, 1}

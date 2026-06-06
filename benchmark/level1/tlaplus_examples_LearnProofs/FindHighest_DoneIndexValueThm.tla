@@ -5,7 +5,7 @@
 (* & proving type invariants, inductive invariants, and correctness.       *)
 (***************************************************************************)
 
-EXTENDS Sequences, Naturals, Integers, TLAPS
+EXTENDS FindHighest
 
 (****************************************************************************
 --algorithm Highest {
@@ -24,36 +24,10 @@ lb: while (i <= Len(f)) {
 }
 ****************************************************************************)
 \* BEGIN TRANSLATION (chksum(pcal) = "31f24270" /\ chksum(tla) = "819802c6")
-VARIABLES f, h, i, pc
 
 (* define statement *)
-max(a, b) == IF a >= b THEN a ELSE b
-
-
-vars == << f, h, i, pc >>
-
-Init == (* Global variables *)
-        /\ f \in Seq(Nat)
-        /\ h = -1
-        /\ i = 1
-        /\ pc = "lb"
-
-lb == /\ pc = "lb"
-      /\ IF i <= Len(f)
-            THEN /\ h' = max(h, f[i])
-                 /\ i' = i + 1
-                 /\ pc' = "lb"
-            ELSE /\ pc' = "Done"
-                 /\ UNCHANGED << h, i >>
-      /\ f' = f
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
-Terminating == pc = "Done" /\ UNCHANGED vars
-
-Next == lb
-           \/ Terminating
-
-Spec == Init /\ [][Next]_vars
 
 Termination == <>(pc = "Done")
 
@@ -79,17 +53,30 @@ THEOREM TypeInvariantHolds == Spec => []TypeOK
 \* The last one (inductive case) is usually quite difficult. It helps to
 \* never forget you have an extremely powerful assumption: that Invariant is
 \* true!
-  PROOF OMITTED
+PROOF OMITTED
 
+\* The inductive invariant; writing these is an art. You want an invariant
+\* that can be shown to be true in every state, and if it's true in all
+\* states, it can be shown to imply algorithm correctness as a whole.
 InductiveInvariant ==
   \A idx \in 1..(i - 1) : f[idx] <= h
 
 THEOREM InductiveInvariantHolds == Spec => []InductiveInvariant
-  PROOF OMITTED
+PROOF OMITTED
 
+\* A small sub-theorem that relates our inductive invariant to correctness
 DoneIndexValue == pc = "Done" => i = Len(f) + 1
 
 THEOREM DoneIndexValueThm == Spec => []DoneIndexValue
 PROOF OBVIOUS
 
+\* The main event! After the algorithm has terminated, the variable h must
+\* have value greater than or equal to any element of the sequence.
+Correctness ==
+  pc = "Done" =>
+    \A idx \in DOMAIN f : f[idx] <= h
+
+\* Correctness is implied by the preceding invariants.
+
 =============================================================================
+

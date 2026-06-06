@@ -19,30 +19,7 @@
 (* specification under a suitable refinement mapping (substitution for the *)
 (* variable v).                                                            *)
 (***************************************************************************)
-EXTENDS Naturals, TLAPS
-
-CONSTANT XInit(_), XAct(_, _, _)
-
-VARIABLE p, c, x
-
-Init == /\ p = 0
-        /\ c = 0
-        /\ XInit(x)
-
-ProducerStep == /\ p = c
-                /\ XAct(0, x, x')
-                /\ p' = (p + 1) % 2
-                /\ c' = c
-
-ConsumerStep == /\ p # c
-                /\ XAct(1, x, x')
-                /\ c' = (c + 1) % 2
-                /\ p' = p
-
-Next == ProducerStep \/ ConsumerStep
-
-Spec == Init /\ [][Next]_<<p, c, x>>
-
+EXTENDS TwoPhase
 
 (***************************************************************************)
 (* Inv is the invariant that is needed for the proof.                      *)
@@ -101,4 +78,13 @@ THEOREM Mod2 == \A i \in {0,1} : /\ (i + 1) % 2 = 1 - i
                                  /\ (i + 0) % 2 = i
 PROOF OBVIOUS
 
+(***************************************************************************)
+(* The following theorem is a standard proof that one specification        *)
+(* implements (the safety part of) another specification under a           *)
+(* refinement mapping.  In fact, the temporal leaf proofs will be exactly  *)
+(* the same one-liners for every such proof.  In realistic example, the    *)
+(* non-temporal leaf proofs will be replaced by fairly long structured     *)
+(* proofs--especially the two substeps numbered <2>2.                      *)
+(***************************************************************************)
 ==============================================================
+\* Generated at Sat Oct 31 03:15:55 PDT 2009

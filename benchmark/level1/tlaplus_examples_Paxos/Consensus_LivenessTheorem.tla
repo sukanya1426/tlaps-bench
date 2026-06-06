@@ -1,4 +1,4 @@
------------------------------ MODULE Consensus_LivenessTheorem ------------------------------ 
+----------------------------- MODULE Consensus_LivenessTheorem ------------------------------
 EXTENDS Naturals, FiniteSets, TLAPS, FiniteSetTheorems
 
 CONSTANT Value 
@@ -29,7 +29,6 @@ Next == /\ chosen = {}
 (* The complete spec.                                                      *)
 (***************************************************************************)
 Spec == Init /\ [][Next]_chosen 
------------------------------------------------------------------------------
 (***************************************************************************)
 (* Safety: At most one value is chosen.                                    *)
 (***************************************************************************)
@@ -37,9 +36,8 @@ Inv == /\ TypeOK
        /\ Cardinality(chosen) \leq 1
 
 THEOREM Invariance == Spec => []Inv
-  PROOF OMITTED
+PROOF OMITTED
 
------------------------------------------------------------------------------
 (***************************************************************************)
 (* Liveness: A value is eventually chosen.                                 *)
 (***************************************************************************)
@@ -50,5 +48,4 @@ ASSUME ValuesNonempty == Value # {}
 
 THEOREM LivenessTheorem == LiveSpec =>  Success
 PROOF OBVIOUS
-
 =============================================================================

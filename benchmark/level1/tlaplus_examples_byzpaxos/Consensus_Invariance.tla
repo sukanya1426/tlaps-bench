@@ -1,4 +1,4 @@
------------------------------ MODULE Consensus_Invariance ------------------------------ 
+----------------------------- MODULE Consensus_Invariance ------------------------------
 (***************************************************************************)
 (* The consensus problem requires a set of processes to choose a single    *)
 (* value.  This module specifies the problem by specifying exactly what    *)
@@ -92,7 +92,6 @@ Next == /\ chosen = {}
 Spec == Init /\ [][Next]_vars
 
 \***** END TRANSLATION
------------------------------------------------------------------------------
 (***************************************************************************)
 (* We now prove the safety property that at most one value is chosen.  We  *)
 (* first define the type-correctness invariant TypeOK, and then define Inv *)
@@ -142,9 +141,37 @@ Inv == /\ TypeOK
 (***************************************************************************)
 LEMMA InductiveInvariance ==
            Inv /\ [Next]_vars => Inv'
-  PROOF OMITTED
+PROOF OMITTED
 
 THEOREM Invariance == Spec => []Inv 
 PROOF OBVIOUS
+
+(***************************************************************************)
+(* We now define LiveSpec to be the algorithm's specification with the     *)
+(* added fairness condition of weak fairness of the next-state relation,   *)
+(* which asserts that execution does not stop if some action is enabled.   *)
+(* The temporal formula Success asserts that some value is chosen.         *)
+(* Below, we prove that LiveSpec implies that Success holds eventually.    *)
+(* This means that, in every behavior satisfying LiveSpec, some value will *)
+(* be chosen.                                                              *)
+(***************************************************************************)
+LiveSpec == Spec /\ WF_vars(Next)
+Success == <>(chosen # {})
+
+(***************************************************************************)
+(* For liveness, we need to assume that there exists at least one value.   *)
+(***************************************************************************)
+ASSUME ValueNonempty == Value # {}
+
+(***************************************************************************)
+(* Proving liveness requires reasoning about fairness assumptions, which   *)
+(* are defined in terms of enabledness of actions. It is usually a good    *)
+(* idea to prove a lemma that reduces ENABLED to a simple state predicate. *)
+(***************************************************************************)
+
+(***************************************************************************)
+(* The following theorem is used in the refinement proof in module         *)
+(* VoteProof.                                                              *)
+(***************************************************************************)
 
 =============================================================================

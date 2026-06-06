@@ -12,7 +12,6 @@ ASSUME NAssumption == N \in Nat /\ N >= 1
   (* case complicates the proof a bit, so I decided not to handle that     *)
   (* possibility.                                                          *)
   (*************************************************************************)
------------------------------------------------------------------------------
 (***************************************************************************)
 (* Here are some definitions used for stating and proving correctness.     *)
 (* For simplicity, I decide to write an algorithm that sorts               *)
@@ -55,9 +54,112 @@ Exchange(i, j) == [Id EXCEPT ![i] = j, ![j] = i]
 (* correctness of Bubble Sort.                                             *)
 (***************************************************************************)
 THEOREM IdAPerm == Id \in Perms
-  PROOF OMITTED
+PROOF OMITTED
 
 THEOREM IdIdentity == \A A \in [1..N -> Int] : A ** Id = A
 PROOF OBVIOUS
 
+(***************************************************************************)
+(* Here is the PlusCal algorithm followed by its TLA+ translation.  It was *)
+(* model checked, with the asserts not commented out, for N = 4, with Int  *)
+(* replaced by a set of integers containing 4 distinct elements.           *)
+(***************************************************************************)
+(*
+--fair algorithm BubbleSort {
+    variables A \in [1..N -> Int], A0 = A, i = 1, j = 1;
+    { while (i < N)
+       { \* assert IsSortedTo(A, i) /\ IsPermOf(A, A0);
+         j := i+1 ;
+         while (j > 1  /\  A[j-1] > A[j]) 
+           { \* assert IsSortedTo(A, j-1) /\ IsSortedFromTo(A, j, i+1) /\ IsPermOf(A, A0) ;
+             A[j-1] := A[j] || A[j] := A[j-1] ;
+             j := j-1 ;        
+           } ;
+         i := i+1 ;
+       } ;
+      \* assert IsSorted(A) /\ IsPermOf(A, A0)
+    } 
+} 
+*)
+\* BEGIN TRANSLATION
+VARIABLES A, A0, i, j, pc
+
+vars == << A, A0, i, j, pc >>
+
+Init == (* Global variables *)
+        /\ A \in [1..N -> Int]
+        /\ A0 = A
+        /\ i = 1
+        /\ j = 1
+        /\ pc = "Lbl_1"
+
+Lbl_1 == /\ pc = "Lbl_1"
+         /\ IF i < N
+               THEN /\ j' = i+1
+                    /\ pc' = "Lbl_2"
+               ELSE /\ pc' = "Done"
+                    /\ j' = j
+         /\ UNCHANGED << A, A0, i >>
+
+Lbl_2 == /\ pc = "Lbl_2"
+         /\ IF j > 1  /\  A[j-1] > A[j]
+               THEN /\ A' = [A EXCEPT ![j-1] = A[j],
+                                      ![j] = A[j-1]]
+                    /\ j' = j-1
+                    /\ pc' = "Lbl_2"
+                    /\ i' = i
+               ELSE /\ i' = i+1
+                    /\ pc' = "Lbl_1"
+                    /\ UNCHANGED << A, j >>
+         /\ A0' = A0
+
+Next == Lbl_1 \/ Lbl_2
+           \/ (* Disjunct to prevent deadlock on termination *)
+              (pc = "Done" /\ UNCHANGED vars)
+
+Spec == /\ Init /\ [][Next]_vars
+        /\ WF_vars(Next)
+
+Termination == <>(pc = "Done")
+
+\* END TRANSLATION
+(***************************************************************************)
+(* Next comes the definition of the inductive invariant Inv.  Its          *)
+(* invariance was checked by TLC for N = 4, and its inductive invariance   *)
+(* was checked for N = 3 (with Int replaced by a set of 3 integers).       *)
+(***************************************************************************)
+TypeOK == /\ i \in 1..N
+          /\ j \in 1..N
+          /\ A \in [1..N -> Int]
+          /\ A0 \in [1..N -> Int]
+          /\ pc \in {"Lbl_1", "Lbl_2", "Done"}
+          
+RealInv ==
+  /\ pc = "Lbl_1" => /\ IsSortedTo(A, i)
+                     /\ IsPermOf(A, A0)
+  /\ pc = "Lbl_2" => /\ j \in 1..(i+1)
+                     /\ i < N
+                     /\ IsSortedTo(A, j-1)
+                     /\ IsSortedFromTo(A, j, i+1)
+                     /\ \A p \in 1..(j-1), q \in (j+1)..(i+1) : A[p] =< A[q]
+                     /\ IsPermOf(A, A0)
+                     
+  /\ pc = "Done" => IsSorted(A) /\ IsPermOf(A, A0)
+  
+Inv == TypeOK /\ RealInv
+(***************************************************************************)
+(* Finally, we get to the theorem asserting correctness of the algorithm   *)
+(* and its proof.                                                          *)
+(***************************************************************************)
+
+(***************************************************************************)
+(* Except for writing the comments, writing this module, including         *)
+(* checking the proofs, took about 6.5 hours.                              *)
+(***************************************************************************)
 =============================================================================
+\* Modification History
+\* Last modified Mon Mar 17 11:17:49 CET 2014 by doligez
+\* Last modified Fri Mar 07 15:24:43 CET 2014 by shaolin
+\* Last modified Tue Nov 27 13:33:10 CET 2012 by doligez
+\* Last modified Fri Nov 23 09:32:08 PST 2012 by lamport
+\* Created Wed Nov 21 11:50:58 PST 2012 by lamport

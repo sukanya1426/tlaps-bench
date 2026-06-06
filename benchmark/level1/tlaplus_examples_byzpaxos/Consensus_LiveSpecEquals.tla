@@ -1,4 +1,4 @@
------------------------------ MODULE Consensus_LiveSpecEquals ------------------------------ 
+----------------------------- MODULE Consensus_LiveSpecEquals ------------------------------
 (***************************************************************************)
 (* The consensus problem requires a set of processes to choose a single    *)
 (* value.  This module specifies the problem by specifying exactly what    *)
@@ -92,7 +92,6 @@ Next == /\ chosen = {}
 Spec == Init /\ [][Next]_vars
 
 \***** END TRANSLATION
------------------------------------------------------------------------------
 (***************************************************************************)
 (* We now prove the safety property that at most one value is chosen.  We  *)
 (* first define the type-correctness invariant TypeOK, and then define Inv *)
@@ -142,12 +141,11 @@ Inv == /\ TypeOK
 (***************************************************************************)
 LEMMA InductiveInvariance ==
            Inv /\ [Next]_vars => Inv'
-  PROOF OMITTED
+PROOF OMITTED
 
 THEOREM Invariance == Spec => []Inv 
-  PROOF OMITTED
+PROOF OMITTED
 
------------------------------------------------------------------------------
 (***************************************************************************)
 (* We now define LiveSpec to be the algorithm's specification with the     *)
 (* added fairness condition of weak fairness of the next-state relation,   *)
@@ -171,12 +169,11 @@ ASSUME ValueNonempty == Value # {}
 (* idea to prove a lemma that reduces ENABLED to a simple state predicate. *)
 (***************************************************************************)
 LEMMA EnabledDef == (ENABLED <<Next>>_vars) <=> (chosen = {})
-  PROOF OMITTED
+PROOF OMITTED
 
 THEOREM Liveness == LiveSpec => Success
-  PROOF OMITTED
+PROOF OMITTED
 
------------------------------------------------------------------------------
 (***************************************************************************)
 (* The following theorem is used in the refinement proof in module         *)
 (* VoteProof.                                                              *)

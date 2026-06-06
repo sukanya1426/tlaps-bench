@@ -8,5 +8,4 @@ THEOREM cantor ==
        \A x \in S :
          f [x] # A
 PROOF OBVIOUS
-
 ===============================================

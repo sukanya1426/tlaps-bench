@@ -16,12 +16,12 @@ THEOREM LenAxiom ==
   ASSUME NEW S, NEW seq \in Seq(S)
   PROVE  /\ Len(seq) \in Nat
          /\ seq \in [1..Len(seq) -> S]
-  PROOF OMITTED
+PROOF OMITTED
 
 THEOREM LenDomain == \A S :
                        \A s \in Seq(S) :
                          \A n \in Nat : DOMAIN s = 1..n => n = Len(s)
-  PROOF OMITTED
+PROOF OMITTED
 
 AXIOM HeadDef == \A s : Head(s) = s[1]
 AXIOM TailDef == \A s : Tail(s) = [i \in 1..(Len(s)-1) |-> s[i+1]]
@@ -36,13 +36,27 @@ THEOREM InitialSubSeq ==
    PROVE  /\ SubSeq(s, 1, j) = [i \in 1..j |-> s[i]]
           /\ SubSeq(s, 1, j) \in Seq(S)
           /\ Len(SubSeq(s, 1, j)) = j
-  PROOF OMITTED
+PROOF OMITTED
 
-------------------------------------------------------------------
 THEOREM ElementOfSeq ==
    ASSUME NEW S, NEW seq \in Seq(S),
           NEW n \in 1..Len(seq)
    PROVE  seq[n] \in S
 PROOF OBVIOUS
+
+Remove(i, seq) == [j \in 1..(Len(seq)-1) |->
+                                   IF j < i THEN seq[j] ELSE seq[j+1]]
+
+(***************************************************************************)
+(*                                    Append                               *)
+(***************************************************************************)
+
+(***************************************************************************)
+(*                           Concatenation (\o)                            *)
+(***************************************************************************)
+
+(***************************************************************************)
+(*                           Head and Tail                                 *)
+(***************************************************************************)
 
 =============================================================================

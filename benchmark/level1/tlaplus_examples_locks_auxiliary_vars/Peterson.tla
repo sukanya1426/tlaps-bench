@@ -1,44 +1,16 @@
 ------------------------------- MODULE Peterson -------------------------------
 
-(*****************************************************************************)
-(* This module contains the specification for Peterson's Algorithm, taken    *)
-(* from the "Parallel Programming" course taught at ULiège.                  *)
-(* The invariant `Inv` is the one presented in the course augmented by a     *)
-(* clause representing mutual exclusion of the critical section              *)
-(* A proof is given to show that `Inv` is inductive.                         *)
-(* Moreover the refinement from Peterson to the abstract lock is also proven.*)
-(*****************************************************************************)
-
 EXTENDS Integers, TLAPS
 
 Other(p) == IF p = 1 THEN 2 ELSE 1 
 
-(*
---algorithm Peterson{
-    variables
-      c = [self \in ProcSet |-> FALSE],
-      turn = 1;
-
-    process(proc \in 1..2){
-a0:   while(TRUE){
-        skip;
-a1:     c[self] := TRUE;
-a2:     turn := Other(self);
-a3:     await ~c[Other(self)] \/ turn = self;
-cs:     skip;
-a4:     c[self] := FALSE;
-      }
-    }
-}
-*)
-\* BEGIN TRANSLATION (chksum(pcal) = "1d547bc3" /\ chksum(tla) = "8de86c82")
 VARIABLES pc, c, turn
 
 vars == << pc, c, turn >>
 
 ProcSet == (1..2)
 
-Init == (* Global variables *)
+Init == 
         /\ c = [self \in ProcSet |-> FALSE]
         /\ turn = 1
         /\ pc = [self \in ProcSet |-> "a0"]
@@ -79,8 +51,6 @@ proc(self) == a0(self) \/ a1(self) \/ a2(self) \/ a3(self) \/ cs(self)
 Next == (\E self \in 1..2: proc(self))
 
 Spec == Init /\ [][Next]_vars
-
-\* END TRANSLATION 
 
 TypeOK ==
   /\ c \in [ProcSet -> BOOLEAN]

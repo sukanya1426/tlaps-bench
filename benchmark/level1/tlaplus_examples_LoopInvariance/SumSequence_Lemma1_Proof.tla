@@ -86,7 +86,6 @@ Spec == /\ Init /\ [][Next]_vars
 Termination == <>(pc = "Done")
 
 \* END TRANSLATION
------------------------------------------------------------------------------
 (***************************************************************************)
 (* Correctness of the algorithm means that it satisfies these two          *)
 (* properties:                                                             *)
@@ -110,7 +109,6 @@ PCorrect == (pc = "Done") => (sum = SeqSum(seq))
 (*                                                                         *)
 (* is the set of such sequences with length at most 3.                     *)
 (***************************************************************************)
------------------------------------------------------------------------------
 (***************************************************************************)
 (*                           The Proof of Safety                           *)
 (*                                                                         *)
@@ -132,7 +130,6 @@ Inv == /\ TypeOK
 (* model to give us confidence in its correctness.  We can therefore try   *)
 (* to use it to prove the postcondition.                                   *)
 (***************************************************************************)
------------------------------------------------------------------------------
 (***************************************************************************)
 (* In the course of writing the proof, I found that I needed two simple    *)
 (* simple properties of sequences and SeqSum.  The first essentially       *)
@@ -173,7 +170,7 @@ LEMMA Lemma1 ==
 (***************************************************************************)
 THEOREM FrontDef  ==  \A S : \A s \in Seq(S) :
                         Front(s) = [i \in 1..(Len(s)-1) |-> s[i]]
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA Lemma5  ==  \A s \in Seq(Int) : 
                     (Len(s) > 0) => 
@@ -188,11 +185,8 @@ LEMMA Lemma5  ==  \A s \in Seq(Int) :
 (* be sure that the lemmas are correct, we can then prove them.  Proofs of *)
 (* these lemmas are given below.                                           *)
 (***************************************************************************)
------------------------------------------------------------------------------
 THEOREM Spec => []PCorrect
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (*                          Proofs of the Lemmas.                          *)
 (***************************************************************************)
@@ -208,4 +202,18 @@ LEMMA Lemma1_Proof ==
           SeqSum(s) = IF s = << >> THEN 0 ELSE s[1] + SeqSum(Tail(s))
 PROOF OBVIOUS
 
+(***************************************************************************)
+(* Lemmas 2 and 3 are simple properties of Tail and Front that are used in *)
+(* the proof of Lemma 5.                                                   *)
+(***************************************************************************)
+
+(***************************************************************************)
+(* The following lemma asserts type correctness of the SeqSum operator.    *)
+(* It's proved by induction on the length of its argument.  Such simple    *)
+(* induction is expressed by theorem NatInduction of module                *)
+(* NaturalsInduction.                                                      *)
+(***************************************************************************)
+
 =============================================================================
+\* Modification History
+\* Created Fri Apr 19 14:13:06 PDT 2019 by lamport

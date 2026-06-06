@@ -8,9 +8,13 @@ Odd(x) == x % 2 = 1
 
 \* Z3 can solve it in a single step
 THEOREM \A x \in Nat : Even(x+x)
-  PROOF OMITTED
+PROOF OMITTED
 
+\* alternatively we prove this step-wise by making a case distinction on x being even or odd
 THEOREM T1 == \A x \in Nat: Even(x+x)
 PROOF OBVIOUS
 
 =============================================================================
+\* Modification History
+\* Last modified Tue Mar 08 11:49:27 CET 2016 by marty
+\* Created Mon Oct 26 15:01:26 CET 2015 by marty

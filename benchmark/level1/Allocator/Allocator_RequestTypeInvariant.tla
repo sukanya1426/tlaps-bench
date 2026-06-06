@@ -31,8 +31,6 @@ TypeInvariant ==
   /\ unsat \in [Client -> SUBSET Resource]
   /\ alloc \in [Client -> SUBSET Resource]
 
--------------------------------------------------------------------------
-
 (* Resource are available iff they have not been allocated. *)
 available == Resource \ (UNION {alloc[c] : c \in Client})
 
@@ -76,16 +74,11 @@ Next ==
 
 vars == <<unsat,alloc>>
 
--------------------------------------------------------------------------
-
-
 (* The complete high-level specification. *)
 SimpleAllocator ==
   /\ Init /\ [][Next]_vars
   /\ \A c \in Client: WF_vars(Return(c, alloc[c]))
   /\ \A c \in Client: SF_vars(\E S \in SUBSET Resource: Allocate(c,S))
-
--------------------------------------------------------------------------
 
 Mutex ==
   \A c1,c2 \in Client : \A r \in Resource :
@@ -100,12 +93,8 @@ ClientsWillObtain ==
 InfOftenSatisfied ==
   \A c \in Client : []<>(unsat[c] = {})
 
--------------------------------------------------------------------------
-
 (* Used for symmetry reduction with TLC *)
 \* Symmetry == Permutations(Client) \cup Permutations(Resource)
-
--------------------------------------------------------------------------
 
 (**********************************************************************)
 (* The following version states a weaker fairness requirement for the *)
@@ -122,15 +111,21 @@ SimpleAllocator2 ==
 
 *)
 
--------------------------------------------------------------------------
-
 THEOREM InitTypeInvariant == Init => TypeInvariant
-  PROOF OMITTED
+PROOF OMITTED
 
 THEOREM RequestTypeInvariant ==
   ASSUME NEW c \in Client,
          NEW S \in SUBSET Resource
   PROVE  TypeInvariant /\ Request(c,S) => TypeInvariant'
 PROOF OBVIOUS
+
+(*Allocator.tla
+THEOREM SimpleAllocator => InfOftenSatisfied
+(** The following do not hold:                          **)
+(** THEOREM SimpleAllocator2 => ClientsWillObtain       **)
+(** THEOREM SimpleAllocator2 => InfOftenSatisfied       **)
+
+*)
 
 =========================================================================

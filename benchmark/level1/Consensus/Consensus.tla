@@ -1,8 +1,8 @@
 ----------------------------- MODULE Consensus ------------------------------
 EXTENDS Sets, TLAPS
 -----------------------------------------------------------------------------
-CONSTANT Value  \* the set of values that can be chosen
-VARIABLE chosen \* the set of values that have been chosen
+CONSTANT Value  
+VARIABLE chosen 
 -----------------------------------------------------------------------------
 Init == chosen = {}
 

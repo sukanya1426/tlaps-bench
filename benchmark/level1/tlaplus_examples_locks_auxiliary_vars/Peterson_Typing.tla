@@ -108,8 +108,6 @@ L == INSTANCE Lock
      lock <- lock_translation
 LSpec == L!Spec
 
--------------------------------------------------------------------------------
-
 LEMMA Typing == Spec => []TypeOK
 PROOF OBVIOUS
 

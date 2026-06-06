@@ -69,7 +69,6 @@ Spec == Init /\ [][Next]_vars
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
-----------------------------------------------------------------------------
 (***************************************************************************)
 (* The property of this algorithm we want to prove is that, when all the   *)
 (* processes have terminated, y[i] equals 1 for at least one process i.   *)
@@ -121,11 +120,19 @@ Inv ==  /\ TypeOK
 (* the standard ones for an invariance proof, and the decomposition of the *)
 (* proof of <1>2 was done with the Toolbox's Decompose Proof command.  It  *)
 (* was trivial to get TLAPS to check the proof, except for the proof of    *)
+(* <2>2.  A comment explains the problem I had with that step.             *)
 (***************************************************************************)
 THEOREM Correctness == Spec => []PCorrect
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* It turns out that decomposing step <1>2 is not really necessary: the    *)
+(* following shorter proof is also accepted by TLAPS.                      *)
+(***************************************************************************)
 THEOREM Correctness2 == Spec => []PCorrect
 PROOF OBVIOUS
 
 =============================================================================
+\* Modification History
+\* Last modified Wed May 15 02:33:18 PDT 2019 by lamport
+\* Created Mon Apr 15 16:25:14 PDT 2019 by lamport

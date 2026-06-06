@@ -43,7 +43,6 @@ Next == ProducerStep \/ ConsumerStep
 
 Spec == Init /\ [][Next]_<<p, c, x>>
 
-
 (***************************************************************************)
 (* Inv is the invariant that is needed for the proof.                      *)
 (***************************************************************************)
@@ -72,8 +71,10 @@ A == INSTANCE Alternate WITH v <- vBar
 (* refinement mapping.  In fact, the temporal leaf proofs will be exactly  *)
 (* the same one-liners for every such proof.  In realistic example, the    *)
 (* non-temporal leaf proofs will be replaced by fairly long structured     *)
+(* proofs--especially the two substeps numbered <2>2.                      *)
 (***************************************************************************)
 THEOREM Implementation == Spec => A!Spec
 PROOF OBVIOUS
-
+  
 ==============================================================
+\* Generated at Sat Oct 31 03:15:55 PDT 2009

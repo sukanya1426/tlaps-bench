@@ -22,7 +22,7 @@ VotedFor(a, b, v) == <<b, v>> \in votes[a]
 DidNotVoteAt(a, b) == \A v \in Value : ~ VotedFor(a, b, v)
 
 ShowsSafeAt(Q, b, v) ==
-  /\ \A a \in Q : maxBal[a] \geq b \* have promised
+  /\ \A a \in Q : maxBal[a] \geq b 
   /\ \E c \in -1..(b-1) :
       /\ (c # -1) => \E a \in Q : VotedFor(a, c, v)
       /\ \A d \in (c+1)..(b-1), a \in Q : DidNotVoteAt(a, d)
@@ -33,17 +33,17 @@ Init ==
 
 IncreaseMaxBal(a, b) ==
   /\ b > maxBal[a]
-  /\ maxBal' = [maxBal EXCEPT ![a] = b] \* make promise
+  /\ maxBal' = [maxBal EXCEPT ![a] = b] 
   /\ UNCHANGED votes
 
 VoteFor(a, b, v) ==
-    /\ maxBal[a] <= b \* keep promise
+    /\ maxBal[a] <= b 
     /\ \A vt \in votes[a] : vt[1] # b
     /\ \A c \in Acceptor \ {a} :
          \A vt \in votes[c] : (vt[1] = b) => (vt[2] = v)
-    /\ \E Q \in Quorum : ShowsSafeAt(Q, b, v) \* safe to vote
-    /\ votes' = [votes EXCEPT ![a] = votes[a] \cup {<<b, v>>}] \* vote
-    /\ maxBal' = [maxBal EXCEPT ![a] = b] \* make promise
+    /\ \E Q \in Quorum : ShowsSafeAt(Q, b, v) 
+    /\ votes' = [votes EXCEPT ![a] = votes[a] \cup {<<b, v>>}] 
+    /\ maxBal' = [maxBal EXCEPT ![a] = b] 
 -----------------------------------------------------------------------------
 Next == 
     \E a \in Acceptor, b \in Ballot : 
@@ -57,7 +57,7 @@ ChosenAt(b, v) ==
 
 chosen == {v \in Value : \E b \in Ballot : ChosenAt(b, v)}
 
-Consistency == chosen = {} \/ \E v \in Value : chosen = {v} \* Cardinality(chosen) <= 1
+Consistency == chosen = {} \/ \E v \in Value : chosen = {v} 
 ---------------------------------------------------------------------------
 CannotVoteAt(a, b) == 
     /\ maxBal[a] > b
@@ -120,7 +120,7 @@ THEOREM Consistent == Spec => []Consistency
   PROOF OMITTED
 
 ----------------------------------------------------------------------------
-C == INSTANCE Consensus \* WITH chosen <- chosen
+C == INSTANCE Consensus 
 
 THEOREM Refinement == Spec => C!Spec
   PROOF OMITTED

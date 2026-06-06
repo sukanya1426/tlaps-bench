@@ -1,4 +1,4 @@
------------------------------ MODULE VoteProof_Liveness ------------------------------ 
+----------------------------- MODULE VoteProof_Liveness ------------------------------
 (***************************************************************************)
 (* This is a high-level consensus algorithm in which a set of processes    *)
 (* called `acceptors' cooperatively choose a value.  The algorithm uses    *)
@@ -13,7 +13,6 @@
 EXTENDS Integers , FiniteSets, TLC, TLAPS
 
 \* THEOREM SMT == TRUE (*{ by (smt) }*)
------------------------------------------------------------------------------
 CONSTANT Value,     \* As in module Consensus, the set of choosable values.
          Acceptor,  \* The set of all acceptors.
          Quorum     \* The set of all quorums.
@@ -27,9 +26,7 @@ ASSUME QA == /\ \A Q \in Quorum : Q \subseteq Acceptor
              /\ \A Q1, Q2 \in Quorum : Q1 \cap Q2 # {}  
  
 THEOREM QuorumNonEmpty == \A Q \in Quorum : Q # {}
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (* Ballot is the set of all ballot numbers.  For simplicity, we let it be  *)
 (* the set of natural numbers.  However, we write Ballot for that set to   *)
@@ -43,7 +40,6 @@ THEOREM QuorumNonEmpty == \A Q \in Quorum : Q # {}
 (* \leq j, and i..(j-1) by the set of such b with i \leq b < j.            *)
 (***************************************************************************)
 Ballot == Nat
------------------------------------------------------------------------------
 (***************************************************************************)
 (* In the algorithm, each acceptor can cast one or more votes, where each  *)
 (* vote cast by an acceptor has the form <<b, v>> indicating that the      *)
@@ -245,13 +241,11 @@ acceptor(self) == \E b \in Ballot:
                             /\ votes' = [votes EXCEPT ![self] = votes[self] \cup {<<b, v>>}]
                             /\ maxBal' = [maxBal EXCEPT ![self] = b]
 
-
 Next == (\E self \in Acceptor: acceptor(self))
 
 Spec == Init /\ [][Next]_vars
 
 \* END TRANSLATION
------------------------------------------------------------------------------
 (***************************************************************************)
 (* To reason about a recursively-defined operator, one must prove a        *)
 (* theorem about it.  In particular, to reason about SafeAt, we need to    *)
@@ -296,9 +290,7 @@ THEOREM SafeAtProp ==
                                     \A w \in Value :
                                         VotedFor(a, c, w) => (w = v)
                 /\ \A d \in (c+1)..(b-1), a \in Q : DidNotVoteIn(a, d)
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 
 (***************************************************************************)
 (* We now define TypeOK to be the type-correctness invariant.              *)
@@ -319,7 +311,6 @@ TypeOK == /\ votes \in [Acceptor -> SUBSET (Ballot \X Value)]
 ChosenIn(b, v) == \E Q \in Quorum : \A a \in Q : VotedFor(a, b, v)
 
 chosen == {v \in Value : \E b \in Ballot : ChosenIn(b, v)}
------------------------------------------------------------------------------
 (***************************************************************************)
 (*                         Mathematical Induction                          *)
 (*                                                                         *)
@@ -348,9 +339,7 @@ THEOREM GeneralNatInduction ==
          \A f : /\ f[0]
                 /\ \A n \in Nat : (\A j \in 0..n : f[j]) => f[n+1]
                 => \A n \in Nat : f[n]
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (* The following lemma is used for reasoning about the operator SafeAt.    *)
 (* It is proved from SafeAtProp by GeneralNatInduction.                    *)
@@ -365,9 +354,7 @@ LEMMA SafeLemma ==
                     \A a \in Q : /\ maxBal[a] >= c
                                  /\ \/ DidNotVoteIn(a, c)
                                     \/ VotedFor(a, c, v)
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (* We now define the invariant that is used to prove the correctness of    *)
 (* our algorithm--meaning that specification Spec implements specification *)
@@ -401,9 +388,7 @@ VInv3 ==  \A a1, a2 \in Acceptor, b \in Ballot, v1, v2 \in Value :
 (* needed for proving safety, only for liveness.                           *)
 (***************************************************************************)
 THEOREM VInv3 => VInv1
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (* The following lemma proves that SafeAt(b, v) implies that no value      *)
 (* other than v can have been chosen in any ballot numbered less than b.   *)
@@ -420,15 +405,47 @@ LEMMA VT0 == /\ TypeOK
              /\ VInv2
              => \A v, w \in Value, b, c \in Ballot : 
                    (b > c) /\ SafeAt(b, v) /\ ChosenIn(c, w) => (v = w)
-  PROOF OMITTED
-
+PROOF OMITTED
+ 
+(***************************************************************************)
+(* The following theorem asserts that the invariance of TypeOK, VInv1, and *)
+(* VInv2 implies that the algorithm satisfies the basic consensus property *)
+(* that at most one value is chosen (at any time).  If you can prove it,   *)
+(* then you understand why the Paxos consensus algorithm allows only a     *)
+(* single value to be chosen.  Note that VInv3 is not needed to prove this *)
+(* property.                                                               *)
+(***************************************************************************)
 THEOREM VT1 == /\ TypeOK 
                /\ VInv1
                /\ VInv2
                => \A v, w : 
                     (v \in chosen) /\ (w \in chosen) => (v = w)
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* The rest of the proof uses only the primed version of VT1--that is, the *)
+(* theorem whose statement is VT1'.  (Remember that VT1 names the formula  *)
+(* being asserted by the theorem we call VT1.) The formula VT1' asserts    *)
+(* that VT1 is true in the second state of any transition (pair of         *)
+(* states).  Since the proof of theorem VT1 shows that VT1 is true in any  *)
+(* state, formula VT1' is obviously true for any transition.  However,     *)
+(* proving this requires a kind of reasoning that distinguishes between    *)
+(* inference and implication.  If the difference between inference and     *)
+(* implication means nothing to you, it is because that difference does    *)
+(* not arise in ordinary logic; it becomes important only in modal logics. *)
+(* (Temporal logic is one example of modal logic.) Because TLAPS does not  *)
+(* yet handle any modal-logic reasoning, it is yet able to deduce VT1'     *)
+(* from VT1.  This ability will be added when TLAPS is enhanced to do      *)
+(* temporal-logic reasoning.  For now, we have write a separate theorem,   *)
+(* whose proof is obtained from that of VT1 by priming everything.  We     *)
+(* also need the primed versions of SafeAtProp and VT0, which are used in  *)
+(* its proof.                                                              *)
+(*                                                                         *)
+(* The proof of the primed version of a theorem is obtained by simply      *)
+(* priming all the steps in the proof of the original theorem (replacing   *)
+(* references to lemmas by references to their primed versions).  Since we *)
+(* did not prove SafeAtProp, we cannot prove its primed version either.    *)
+(***************************************************************************)
 THEOREM SafeAtPropPrime ==
   \A b \in Ballot, v \in Value :
     SafeAt(b, v)' =
@@ -449,7 +466,7 @@ LEMMA VT0Prime ==
              /\ VInv2'
              => \A v, w \in Value, b, c \in Ballot : 
                    (b > c) /\ SafeAt(b, v)' /\ ChosenIn(c, w)' => (v = w)
-  PROOF OMITTED
+PROOF OMITTED
 
 THEOREM VT1Prime == 
                /\ TypeOK' 
@@ -457,9 +474,7 @@ THEOREM VT1Prime ==
                /\ VInv2'
                => \A v, w : 
                     (v \in chosen') /\ (w \in chosen') => (v = w)
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (* The invariance of VInv2 depends on SafeAt(b, v) being stable, meaning   *)
 (* that once it becomes true it remains true forever.  Stability of        *)
@@ -473,7 +488,6 @@ VInv4 == \A a \in Acceptor, b \in Ballot :
 (* algorithm is VInv, defined as follows.                                  *)
 (***************************************************************************)
 VInv == TypeOK /\ VInv2 /\ VInv3 /\ VInv4
------------------------------------------------------------------------------
 (***************************************************************************)
 (* To simplify reasoning about the next-state action Next, we want to      *)
 (* express it in a more convenient form.  This is done by lemma NextDef    *)
@@ -517,9 +531,7 @@ LEMMA NextDef ==
   TypeOK => 
    (Next =  \E self \in Acceptor :
                  \E b \in Ballot : BallotAction(self, b) )
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (* We now come to the proof that VInv is an invariant of the               *)
 (* specification.  This follows from the following result, which asserts   *)
@@ -527,15 +539,26 @@ LEMMA NextDef ==
 (* is used in the liveness proof as well.                                  *)
 (***************************************************************************)
 THEOREM InductiveInvariance == VInv /\ [Next]_vars => VInv'
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* The invariance of VInv follows easily from theorem InductiveInvariance  *)
+(* and the following result, which is easy to prove with TLAPS.            *)
+(***************************************************************************)
 THEOREM InitImpliesInv == Init => VInv
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* The following theorem asserts that VInv is an invariant of Spec.        *)
+(* Because TLAPS does not yet do any temporal reasoning, we have to omit   *)
+(* the proof of all steps that assert temporal logic formulas.  Both the   *)
+(* steps of this trivial proof are therefore omitted.  However, for all    *)
+(* such omitted proofs, we give the proof that we expect to be             *)
+(* approximately a proof that TLAPS will accept once it does handle        *)
+(* temporal logic reasoning.                                               *)
+(***************************************************************************)
 THEOREM VT2 == Spec => []VInv
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (* The following INSTANCE statement instantiates module Consensus with the *)
 (* following expressions substituted for the parameters (the CONSTANTS and *)
@@ -561,9 +584,7 @@ C == INSTANCE Consensus
 (* substitution (refinement mapping) of the INSTANCE statement.            *)
 (***************************************************************************)
 THEOREM VT3 == Spec => C!Spec 
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (*                                Liveness                                 *)
 (*                                                                         *)
@@ -583,7 +604,6 @@ THEOREM VT3 == Spec => C!Spec
 ASSUME AcceptorFinite == IsFiniteSet(Acceptor)
 
 ASSUME ValueNonempty == Value # {}
------------------------------------------------------------------------------
 (***************************************************************************)
 (* We need the following simple results about sets and sets of numbers.    *)
 (* The first belongs in a library of theorems about finite sets and        *)
@@ -611,7 +631,6 @@ AXIOM FiniteSetHasMax ==
 (* by induction on j-i.                                                    *)
 (***************************************************************************)
 AXIOM IntervalFinite == \A i, j \in Int : IsFiniteSet(i..j)
------------------------------------------------------------------------------
 (***************************************************************************)
 (* The following theorem implies that it is always possible to find a      *)
 (* ballot number b and a value v safe at b by choosing b large enough and  *)
@@ -623,9 +642,7 @@ THEOREM VT4 == TypeOK /\ VInv2 /\ VInv3  =>
                 \A Q \in Quorum, b \in Ballot :
                    (\A a \in Q : (maxBal[a] >= b)) => \E v \in Value : SafeAt(b,v)
 \* Checked as an invariant by TLC with 3 acceptors, 3 ballots, 2 values
-  PROOF OMITTED
-
--------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (* The progress property we require of the algorithm is that a quorum of   *)
 (* acceptors, by themselves, can eventually choose a value v.  This means  *)
@@ -676,7 +693,6 @@ LiveSpec == Spec /\ LiveAssumption
 (*                                                                         *)
 (*                                                                         *)
 (***************************************************************************)
------------------------------------------------------------------------------
 (***************************************************************************)
 (*                       Some Temporal Logic Proof Rules                   *)
 (*                                                                         *)
@@ -745,8 +761,56 @@ LEMMA EventuallyAlwaysForall ==
         ASSUME NEW CONSTANT S, IsFiniteSet(S),
                NEW TEMPORAL P(_)
         PROVE  (\A s \in S : <>[]P(s)) => <>[](\A s \in S : P(s))
+(*******
+<1> DEFINE Hyp == \A s \in S : <>[]P(s)
+           Q(T) == \A s \in S \ T : []P(s)
+           LT  == ProperSubsetRel(S)
+<1>1. Hyp => \E T \in SUBSET S : Q(T)
+  <2>1. Hyp => Q(S)
+  <2>2. QED
+    BY <2>1
+<1>2. Hyp => \A T \in SUBSET S : 
+                Q(T) ~> (Q({}) \/ \E R \in SUBSET S : <<R, T>> \in LT /\ Q(R))
+  <2>1 SUFFICES ASSUME NEW T \in SUBSET S
+                PROVE  Hyp => 
+                         (Q(T) ~> (Q({}) \/ 
+                                     \E R \in SUBSET S : <<R, T>> \in LT /\ Q(R)))
+    OBVIOUS
+  <2>2. CASE T # {}
+    <3>1. PICK s \in T : TRUE
+      BY <2>2
+    <3>1a. s \in S
+      OBVIOUS
+    <3> DEFINE R == T \ {s}
+    <3>2. (<<R, T>> \in LT) /\ (S \ R = (S \ T) \cup {s})
+      BY DEF ProperSubsetRel
+    <3>3. Hyp => <>[]P(s)
+      BY s \in S
+    <3>4. Q(T) <=> []Q(T)
+      BY AlwaysForall (* PTL *)
+    <3>5. <>[]P(s) => [](Q(T) => <>(Q(T) /\ []P(s)))
+      BY <3>4 (* PTL *)
+    <3>6. Q(T) /\ []P(s) <=> Q(R)
+      BY <3>2
+    <3>7. Hyp => (Q(T) ~> Q(R))
+      BY <3>3, <3>5, <3>6 (* PTL *)
+    <3>8. QED
+      BY <3>7, <3>2 (* PTL *)
+  <2>3. CASE T = {}   
+    OBVIOUS (* PTL, which implies A ~> A *)
+  <2>4. QED
+    BY <2>2, <2>3
+<1>3. (\A s \in S : <>[]P(s)) => (\E T \in SUBSET S : Q(T)) ~> Q({})
+  BY <1>2, SubsetWellFounded, LatticeRule 
+<1>4. <> Q({})
+  BY <1>1, <1>3 (* PTL *)
+<1>5. QED
+  <2>1. Q({}) <=> [](\A s \in S : P(s))
+    BY AlwaysForall
+  <2>2. QED
+    BY <1>4, <2>1
+*****)
 PROOF OMITTED
------------------------------------------------------------------------------
 (***************************************************************************)
 (* Here is our proof that LiveSpec implements the specification LiveSpec   *)
 (* of module Consensus under our refinement mapping.                       *)
@@ -755,3 +819,6 @@ THEOREM Liveness == LiveSpec => C!LiveSpec
 PROOF OBVIOUS
 
 ===============================================================================
+\* Modification History
+\* Last modified Sat Nov 16 22:18:41 CST 2019 by hengxin
+\* Last modified Wed Feb 16 15:20:49 PST 2011 by lamport

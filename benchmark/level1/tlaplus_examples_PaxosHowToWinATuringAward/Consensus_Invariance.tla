@@ -1,4 +1,4 @@
------------------------------ MODULE Consensus_Invariance ------------------------------ 
+----------------------------- MODULE Consensus_Invariance ------------------------------
 (***************************************************************************)
 (* This is a very abstract specification of the consensus problem, in      *)
 (* which a set of processes must choose a single value.  We abstract away  *)
@@ -59,7 +59,6 @@ Next == /\ chosen = {}
 (***************************************************************************)
 Spec == Init /\ [][Next]_chosen 
 
------------------------------------------------------------------------------
 (***************************************************************************)
 (* The specification should imply the safety property that 'chosen' can    *)
 (* contain at most one value in any reachable state.  This condition on    *)
@@ -75,5 +74,34 @@ Inv == /\ TypeOK
 (***************************************************************************)
 THEOREM Invariance  ==  Spec => []Inv
 PROOF OBVIOUS
+  
+(***************************************************************************)
+(* If you are reading this specification in the Toolbox as you should be   *)
+(* (either the source file or its pretty-printed version), then you have   *)
+(* already opened the specification in the Toolbox.  If not, you should do *)
+(* that now.  Download and run the Toolbox.  Open a new specification with *)
+(* this module file (Consensus.tla) as the root file, using the default    *)
+(* specification name, which is the name of the root file.  Along with the *)
+(* module, this will install a TLC model named 3Values.  Open that model.  *)
+(* You will see that the model specifies three things:                     *)
+(*                                                                         *)
+(*   - The specification is formula Spec.                                  *)
+(*                                                                         *)
+(*   - Three unspecified constants a, b, and c (called model values)       *)
+(*     are substituted for the declared constants Values.                  *)
+(*                                                                         *)
+(*   - TLC should check that formula Inv is an invariant (a                *)
+(*     formula true on all reachable states of he specification.           *)
+(*                                                                         *)
+(* Run TLC on the model.  For this tiny spec, this just takes perhaps a    *)
+(* millisecond plus the couple of seconds that TLC needs to start and stop *)
+(* running any spec.                                                       *)
+(*                                                                         *)
+(* TLC's default setting to check for deadlock would cause it to report a  *)
+(* deadlock because no action is possible after a value is chosen.  We     *)
+(* would say that the system terminated, but termination is just deadlock  *)
+(* that we want to happen, and the model tells TLC that we want deadlock   *)
+(* by disabling its check for it.                                          *)
+(***************************************************************************)
 
 =============================================================================

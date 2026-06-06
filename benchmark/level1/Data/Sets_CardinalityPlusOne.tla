@@ -8,7 +8,6 @@ IsBijection(f, S, T) == /\ f \in [S -> T]
                         /\ \A x, y \in S : (x # y) => (f[x] # f[y])
                         /\ \A y \in T : \E x \in S : f[x] = y
 
-
 IsFiniteSet(S) == \E n \in Nat : \E f : IsBijection(f, 1..n, S)
 
 (****************************************************************************)
@@ -23,18 +22,15 @@ AXIOM CardinalityAxiom ==
          \A S : IsFiniteSet(S) =>
            \A n : (n = Cardinality(S)) <=>
                     (n \in Nat) /\ \E f : IsBijection(f, 1..n, S)
------------------------------------------------------------------------------
 
 THEOREM CardinalityInNat == \A S : IsFiniteSet(S) => Cardinality(S) \in Nat
-  PROOF OMITTED
-
-------------------------------------------------------------------
+PROOF OMITTED
 
 THEOREM CardinalityZero ==
            /\ IsFiniteSet({})
            /\ Cardinality({}) = 0
            /\ \A S : IsFiniteSet(S) /\ (Cardinality(S)=0) => (S = {})
-  PROOF OMITTED
+PROOF OMITTED
 
 THEOREM CardinalityPlusOne ==
     ASSUME NEW S, IsFiniteSet(S),

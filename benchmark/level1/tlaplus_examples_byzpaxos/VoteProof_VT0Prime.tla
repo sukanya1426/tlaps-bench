@@ -1,4 +1,4 @@
------------------------------ MODULE VoteProof_VT0Prime ------------------------------ 
+----------------------------- MODULE VoteProof_VT0Prime ------------------------------
 (***************************************************************************)
 (* This is a high-level consensus algorithm in which a set of processes    *)
 (* called `acceptors' cooperatively choose a value.  The algorithm uses    *)
@@ -26,9 +26,7 @@ ASSUME QA == /\ \A Q \in Quorum : Q \subseteq Acceptor
              /\ \A Q1, Q2 \in Quorum : Q1 \cap Q2 # {}  
 
 THEOREM QuorumNonEmpty == \A Q \in Quorum : Q # {}
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (* Ballot is the set of all ballot numbers.  For simplicity, we let it be  *)
 (* the set of natural numbers.  However, we write Ballot for that set to   *)
@@ -42,7 +40,6 @@ THEOREM QuorumNonEmpty == \A Q \in Quorum : Q # {}
 (* \leq j, and i..(j-1) by the set of such b with i \leq b < j.            *)
 (***************************************************************************)
 Ballot == Nat
------------------------------------------------------------------------------
 (***************************************************************************)
 (* In the algorithm, each acceptor can cast one or more votes, where each  *)
 (* vote cast by an acceptor has the form <<b, v>> indicating that the      *)
@@ -244,13 +241,11 @@ acceptor(self) == \E b \in Ballot:
                             /\ votes' = [votes EXCEPT ![self] = votes[self] \cup {<<b, v>>}]
                             /\ maxBal' = [maxBal EXCEPT ![self] = b]
 
-
 Next == (\E self \in Acceptor: acceptor(self))
 
 Spec == Init /\ [][Next]_vars
 
 \* END TRANSLATION
------------------------------------------------------------------------------
 (***************************************************************************)
 (* To reason about a recursively-defined operator, one must prove a        *)
 (* theorem about it.  In particular, to reason about SafeAt, we need to    *)
@@ -283,9 +278,7 @@ THEOREM SafeAtProp ==
                                     \A w \in Value :
                                         VotedFor(a, c, w) => (w = v)
                 /\ \A d \in (c+1)..(b-1), a \in Q : DidNotVoteIn(a, d)
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 
 (***************************************************************************)
 (* We now define TypeOK to be the type-correctness invariant.              *)
@@ -306,7 +299,6 @@ TypeOK == /\ votes \in [Acceptor -> SUBSET (Ballot \X Value)]
 ChosenIn(b, v) == \E Q \in Quorum : \A a \in Q : VotedFor(a, b, v)
 
 chosen == {v \in Value : \E b \in Ballot : ChosenIn(b, v)}
------------------------------------------------------------------------------
 (***************************************************************************)
 (* The following lemma is used for reasoning about the operator SafeAt.    *)
 (* It is proved from SafeAtProp by induction.                              *)
@@ -321,9 +313,7 @@ LEMMA SafeLemma ==
                     \A a \in Q : /\ maxBal[a] >= c
                                  /\ \/ DidNotVoteIn(a, c)
                                     \/ VotedFor(a, c, v)
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (* We now define the invariant that is used to prove the correctness of    *)
 (* our algorithm--meaning that specification Spec implements specification *)
@@ -357,9 +347,7 @@ VInv3 ==  \A a1, a2 \in Acceptor, b \in Ballot, v1, v2 \in Value :
 (* needed for proving safety, only for liveness.                           *)
 (***************************************************************************)
 THEOREM VInv3 => VInv1
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (* The following lemma proves that SafeAt(b, v) implies that no value      *)
 (* other than v can have been chosen in any ballot numbered less than b.   *)
@@ -376,15 +364,31 @@ LEMMA VT0 == /\ TypeOK
              /\ VInv2
              => \A v, w \in Value, b, c \in Ballot : 
                    (b > c) /\ SafeAt(b, v) /\ ChosenIn(c, w) => (v = w)
-  PROOF OMITTED
-
+PROOF OMITTED
+ 
+(***************************************************************************)
+(* The following theorem asserts that the invariance of TypeOK, VInv1, and *)
+(* VInv2 implies that the algorithm satisfies the basic consensus property *)
+(* that at most one value is chosen (at any time).  If you can prove it,   *)
+(* then you understand why the Paxos consensus algorithm allows only a     *)
+(* single value to be chosen.  Note that VInv3 is not needed to prove this *)
+(* property.                                                               *)
+(***************************************************************************)
 THEOREM VT1 == /\ TypeOK 
                /\ VInv1
                /\ VInv2
                => \A v, w : 
                     (v \in chosen) /\ (w \in chosen) => (v = w)
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* The rest of the proof uses only the primed version of VT1--that is, the *)
+(* theorem whose statement is VT1'.  (Remember that VT1 names the formula  *)
+(* being asserted by the theorem we call VT1.) The formula VT1' asserts    *)
+(* that VT1 is true in the second state of any transition (pair of         *)
+(* states). We derive that theorem from VT1 by simple temporal logic, and  *)
+(* similarly for VT0 and SafeAtProp.                                       *)
+(***************************************************************************)
 THEOREM SafeAtPropPrime ==
   \A b \in Ballot, v \in Value :
     SafeAt(b, v)' <=>
@@ -397,7 +401,7 @@ THEOREM SafeAtPropPrime ==
                                     \A w \in Value :
                                         VotedFor(a, c, w)' => (w = v)
                 /\ \A d \in (c+1)..(b-1), a \in Q : DidNotVoteIn(a, d)'
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA VT0Prime == 
   /\ TypeOK'
@@ -406,5 +410,181 @@ LEMMA VT0Prime ==
   => \A v, w \in Value, b, c \in Ballot : 
         (b > c) /\ SafeAt(b, v)' /\ ChosenIn(c, w)' => (v = w)
 PROOF OBVIOUS
+
+(***************************************************************************)
+(* The invariance of VInv2 depends on SafeAt(b, v) being stable, meaning   *)
+(* that once it becomes true it remains true forever.  Stability of        *)
+(* SafeAt(b, v) depends on the following invariant.                        *)
+(***************************************************************************)
+VInv4 == \A a \in Acceptor, b \in Ballot : 
+            maxBal[a] < b => DidNotVoteIn(a, b)
+             
+(***************************************************************************)
+(* The inductive invariant that we use to prove correctness of this        *)
+(* algorithm is VInv, defined as follows.                                  *)
+(***************************************************************************)
+VInv == TypeOK /\ VInv2 /\ VInv3 /\ VInv4
+(***************************************************************************)
+(* To simplify reasoning about the next-state action Next, we want to      *)
+(* express it in a more convenient form.  This is done by lemma NextDef    *)
+(* below, which shows that Next equals an action defined in terms of the   *)
+(* following subactions.                                                   *)
+(***************************************************************************)
+IncreaseMaxBal(self, b) ==  
+  /\ b > maxBal[self]
+  /\ maxBal' = [maxBal EXCEPT ![self] = b]
+  /\ UNCHANGED votes
+
+VoteFor(self, b, v) == 
+  /\ maxBal[self] \leq b
+  /\ DidNotVoteIn(self, b)
+  /\ \A p \in Acceptor \ {self} :
+        \A w \in Value : VotedFor(p, b, w) => (w = v)
+  /\ SafeAt(b, v)
+  /\ votes' = [votes EXCEPT ![self] = votes[self] \cup {<<b, v>>}]
+  /\ maxBal' = [maxBal EXCEPT ![self] = b]
+
+BallotAction(self, b) ==
+  \/ IncreaseMaxBal(self, b)
+  \/ \E v \in Value : VoteFor(self, b, v)
+
+(***************************************************************************)
+(* When proving lemma NextDef, we were surprised to discover that it       *)
+(* required the assumption that the set of acceptors is non-empty.  This   *)
+(* assumption isn't necessary for safety, since if there are no acceptors  *)
+(* there can be no quorums (see theorem QuorumNonEmpty above) so no value  *)
+(* is ever chosen and the Consensus specification is trivially implemented *)
+(* under our refinement mapping.  However, the assumption is necessary for *)
+(* liveness and it allows us to lemma NextDef for the safety proof as      *)
+(* well, so we assert it now.                                              *)
+(***************************************************************************)
+ASSUME AcceptorNonempty == Acceptor # {}
+
+(***************************************************************************)
+(* The proof of the lemma itself is quite simple.                          *)
+(***************************************************************************)
+(***************************************************************************)
+(* We now come to the proof that VInv is an invariant of the               *)
+(* specification.  This follows from the following result, which asserts   *)
+(* that it is an inductive invariant of the next-state action.  This fact  *)
+(* is used in the liveness proof as well.                                  *)
+(***************************************************************************)
+
+(***************************************************************************)
+(* The invariance of VInv follows easily from theorem InductiveInvariance  *)
+(* and the following result, which is easy to prove with TLAPS.            *)
+(***************************************************************************)
+
+(***************************************************************************)
+(* The following theorem asserts that VInv is an invariant of Spec.        *)
+(***************************************************************************)
+
+(***************************************************************************)
+(* The following INSTANCE statement instantiates module Consensus with the *)
+(* following expressions substituted for the parameters (the CONSTANTS and *)
+(* VARIABLES) of that module:                                              *)
+(*                                                                         *)
+(*   Parameter of Consensus    Expression (of this module)                 *)
+(*   ----------------------    ---------------------------                 *)
+(*    Value                     Value                                      *)
+(*    chosen                    chosen                                     *)
+(*                                                                         *)
+(* (Note that if no substitution is specified for a parameter, the default *)
+(* is to substitute the parameter or defined operator of the same name.)   *)
+(* More precisely, for each defined identifier id of module Consensus,     *)
+(* this statement defines C!id to equal the value of id under these        *)
+(* substitutions.                                                          *)
+(***************************************************************************)
+C == INSTANCE Consensus 
+Refines == C!Spec
+
+(***************************************************************************)
+(* The following theorem asserts that the safety properties of the voting  *)
+(* algorithm (specified by formula Spec) of this module implement the      *)
+(* consensus safety specification Spec of module Consensus under the       *)
+(* substitution (refinement mapping) of the INSTANCE statement.            *)
+(***************************************************************************)
+
+(***************************************************************************)
+(*                                Liveness                                 *)
+(*                                                                         *)
+(* We now state the liveness property required of our voting algorithm and *)
+(* prove that it and the safety property imply specification LiveSpec of   *)
+(* module Consensus under our refinement mapping.                          *)
+(*                                                                         *)
+(* We begin by stating two additional assumptions that are necessary for   *)
+(* liveness.  Liveness requires that some value eventually be chosen.      *)
+(* This cannot hold with an infinite set of acceptors.  More precisely,    *)
+(* liveness requires the existence of a finite quorum.  (Otherwise, it     *)
+(* would be impossible for all acceptors of any quorum ever to have voted, *)
+(* so no value could ever be chosen.) Moreover, it is impossible to choose *)
+(* a value if there are no values.  Hence, we make the following two       *)
+(* assumptions.                                                            *)
+(***************************************************************************)      
+ASSUME AcceptorFinite == IsFiniteSet(Acceptor)
+
+ASSUME ValueNonempty == Value # {}
+
+(***************************************************************************)
+(* The following theorem implies that it is always possible to find a      *)
+(* ballot number b and a value v safe at b by choosing b large enough and  *)
+(* then having a quorum of acceptors perform IncreaseMaxBal(b) actions.    *)
+(* It will be used in the liveness proof.  Observe that it is for          *)
+(* liveness, not safety, that invariant VInv3 is required.                 *)
+(***************************************************************************)
+(***************************************************************************)
+(* The progress property we require of the algorithm is that a quorum of   *)
+(* acceptors, by themselves, can eventually choose a value v.  This means  *)
+(* that, for some quorum Q and ballot b, the acceptors `a' of Q must make  *)
+(* SafeAt(b, v) true by executing IncreaseMaxBal(a, b) and then must       *)
+(* execute VoteFor(a, b, v) to choose v.  In order to be able to execute   *)
+(* VoteFor(a, b, v), acceptor `a' must not execute a Ballot(a, c) action   *)
+(* for any c > b.                                                          *)
+(*                                                                         *)
+(* These considerations lead to the following liveness requirement         *)
+(* LiveAssumption.  The WF condition ensures that the acceptors `a' in Q   *)
+(* eventually execute the necessary BallotAction(a, b) actions if they are *)
+(* enabled, and the [][...]_vars condition ensures that they never perform *)
+(* BallotAction actions for higher-numbered ballots, so the necessary      *)
+(* BallotAction(a, b) actions are enabled.                                 *)
+(***************************************************************************)
+LiveAssumption ==
+  \E Q \in Quorum, b \in Ballot :
+     /\ \A self \in Q : WF_vars(BallotAction(self, b))
+     /\ [] [\A self \in Q : \A c \in Ballot : 
+               (c > b) => ~ BallotAction(self, c)]_vars
+     
+LiveSpec == Spec /\ LiveAssumption  
+(***************************************************************************)
+(* LiveAssumption is stronger than necessary.  Instead of requiring that   *)
+(* an acceptor in Q never executes an action of a higher-numbered ballot   *)
+(* than b, it suffices that it doesn't execute such an action until unless *)
+(* it has voted in ballot b.  However, the natural liveness requirement    *)
+(* for a Paxos consensus algorithm implies condition LiveAssumption.       *)
+(*                                                                         *)
+(* Condition LiveAssumption is a liveness property, constraining only what *)
+(* eventually happens.  It is straightforward to replace "eventually       *)
+(* happens" by "happens within some length of time" and convert            *)
+(* LiveAssumption into a real-time condition.  We have not done that for   *)
+(* three reasons:                                                          *)
+(*                                                                         *)
+(*  1. The real-time requirement and, we believe, the real-time reasoning  *)
+(*     will be more complicated, since temporal logic was developed to     *)
+(*     abstract away much of the complexity of reasoning about explicit    *)
+(*     times.                                                              *)
+(*                                                                         *)
+(*  2. TLAPS does not yet support reasoning about real numbers.            *)
+(*                                                                         *)
+(*  3. Reasoning about real-time specifications consists entirely          *)
+(*     of safety reasoning, which is almost entirely action reasoning.     *)
+(*     We want to see how the TLA+ proof language and TLAPS do on          *)
+(*     temporal logic reasoning.                                           *)
+(*                                                                         *)
+(*                                                                         *)
+(***************************************************************************)
+(***************************************************************************)
+(* Here is our proof that LiveSpec implements the specification LiveSpec   *)
+(* of module Consensus under our refinement mapping.                       *)
+(***************************************************************************)
 
 ===============================================================================

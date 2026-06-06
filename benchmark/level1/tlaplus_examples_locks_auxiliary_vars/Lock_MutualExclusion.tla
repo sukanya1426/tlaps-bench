@@ -79,10 +79,8 @@ LockInv ==
   /\ \A i, j \in ProcSet: (i # j) => ~(lockcs(i) /\ lockcs(j))
   /\ (\E p \in ProcSet: lockcs(p)) => lock = 0
 
--------------------------------------------------------------------------------
-
 LEMMA Typing == Spec => []TypeOK
-  PROOF OMITTED
+PROOF OMITTED
 
 THEOREM MutualExclusion == Spec => []LockInv
 PROOF OBVIOUS

@@ -14,23 +14,17 @@
 (*    pages = "398--461"                                                   *)
 (***************************************************************************)
 
-EXTENDS Integers, FiniteSets, FiniteSetTheorems, TLAPS
+EXTENDS BPConProof
 
-----------------------------------------------------------------------------
 (***************************************************************************)
 (* The sets Value and Ballot are the same as in the Voting and             *)
 (* PConProof specs.                                                        *)
 (***************************************************************************)
-CONSTANT Value
-
-Ballot == Nat
 
 (***************************************************************************)
 (* As in module PConProof, we define None to be an unspecified value that  *)
 (* is not an element of Value.                                             *)
 (***************************************************************************)
-None == CHOOSE v : v \notin Value
------------------------------------------------------------------------------
 (***************************************************************************)
 (* We pretend that which acceptors are good and which are malicious is     *)
 (* specified in advance.  Of course, the algorithm executed by the good    *)
@@ -52,16 +46,12 @@ None == CHOOSE v : v \notin Value
 (* non-faulty acceptors and have no effect.) Assumptions about leader      *)
 (* behavior are required only for liveness.                                *)
 (***************************************************************************)
-CONSTANTS Acceptor,       \* The set of good (non-faulty) acceptors.
-          FakeAcceptor,   \* The set of possibly malicious (faulty) acceptors.
-          ByzQuorum,
             (***************************************************************)
             (* A Byzantine quorum is set of acceptors that includes a      *)
             (* quorum of good ones.  In the case that there are 2f+1 good  *)
             (* acceptors and f bad ones, a Byzantine quorum is any set of  *)
             (* 2f+1 acceptors.                                             *)
             (***************************************************************)
-          WeakQuorum
             (***************************************************************)
             (* A weak quorum is a set of acceptors that includes at least  *)
             (* one good one.  If there are f bad acceptors, then a weak    *)
@@ -71,34 +61,22 @@ CONSTANTS Acceptor,       \* The set of good (non-faulty) acceptors.
 (***************************************************************************)
 (* We define ByzAcceptor to be the set of all real or fake acceptors.      *)
 (***************************************************************************)
-ByzAcceptor == Acceptor \cup FakeAcceptor
 
 (***************************************************************************)
 (* As in the Paxos consensus algorithm, we assume that the set of ballot   *)
 (* numbers and -1 is disjoint from the set of all (real and fake)          *)
 (* acceptors.                                                              *)
 (***************************************************************************)
-ASSUME BallotAssump == (Ballot \cup {-1}) \cap ByzAcceptor = {}
 
 (***************************************************************************)
 (* The following are the assumptions about acceptors and quorums that are  *)
 (* needed to ensure safety of our algorithm.                               *)
 (***************************************************************************)
-ASSUME BQA ==
-          /\ Acceptor \cap FakeAcceptor = {}
-          /\ \A Q \in ByzQuorum : Q \subseteq ByzAcceptor
-          /\ \A Q1, Q2 \in ByzQuorum : Q1 \cap Q2 \cap Acceptor # {}
-          /\ \A Q \in WeakQuorum : /\ Q \subseteq ByzAcceptor
-                                   /\ Q \cap Acceptor # {}
 
 (***************************************************************************)
 (* The following assumption is not needed for safety, but it will be       *)
 (* needed to ensure liveness.                                              *)
 (***************************************************************************)
-ASSUME BQLA ==
-          /\ \E Q \in ByzQuorum : Q \subseteq Acceptor
-          /\ \E Q \in WeakQuorum : Q \subseteq Acceptor
------------------------------------------------------------------------------
 (***************************************************************************)
 (* We now define the set BMessage of all possible messages.                *)
 (***************************************************************************)
@@ -107,38 +85,12 @@ ASSUME BQLA ==
   (* Type 1a messages are the same as in module PConProof.                 *)
   (*************************************************************************)
 
-1bMessage ==
-  (*************************************************************************)
-  (* A 1b message serves the same function as a 1b message in ordinary     *)
-  (* Paxos, where the mbal and mval components correspond to the mbal and  *)
-  (* mval components in the 1b messages of PConProof.  The m2av component  *)
-  (* is set containing all records with val and bal components equal to    *)
-  (* the corresponding of components of a 2av message that the acceptor    *)
-  (* has sent, except containing for each val only the record              *)
-  (* corresponding to the 2av message with the highest bal component.      *)
-  (*************************************************************************)
-  [type : {"1b"}, bal : Ballot,
-   mbal : Ballot \cup {-1}, mval : Value \cup {None},
-   m2av : SUBSET [val : Value, bal : Ballot],
-   acc : ByzAcceptor]
-
 1cMessage ==
   (*************************************************************************)
   (* Type 1c messages are the same as in PConProof.                        *)
   (*************************************************************************)
   [type : {"1c"}, bal : Ballot, val : Value]
 
-2avMessage ==
-  (*************************************************************************)
-  (* When an acceptor receives a 1c message, it relays that message's      *)
-  (* contents to the other acceptors in a 2av message.  It does this only  *)
-  (* for the first 1c message it receives for that ballot; it can receive  *)
-  (* a second 1c message only if the leader is malicious, in which case it *)
-  (* ignores that second 1c message.                                       *)
-  (*************************************************************************)
-   [type : {"2av"}, bal : Ballot, val : Value, acc : ByzAcceptor]
-
-2bMessage == [type : {"2b"}, acc : ByzAcceptor, bal : Ballot, val : Value]
   (*************************************************************************)
   (* 2b messages are the same as in ordinary Paxos.                        *)
   (*************************************************************************)
@@ -156,10 +108,7 @@ LEMMA BMessageLemma ==
            /\ (m \in 1cMessage) <=>  (m.type = "1c")
            /\ (m \in 2avMessage) <=>  (m.type = "2av")
            /\ (m \in 2bMessage) <=>  (m.type = "2b")
-  PROOF OMITTED
-
------------------------------------------------------------------------------
-
+PROOF OMITTED
 
 (****************************************************************************
 We now give the algorithm.  The basic idea is that the set Acceptor of
@@ -420,91 +369,12 @@ Below is the TLA+ translation, as produced by the translator.  (Some
 blank lines have been removed.)
 **************************************************************************)
 \* BEGIN TRANSLATION
-VARIABLES maxBal, maxVBal, maxVVal, 2avSent, knowsSent, bmsgs
 
 (* define statement *)
-sentMsgs(type, bal) == {m \in bmsgs: m.type = type /\ m.bal = bal}
-
-KnowsSafeAt(ac, b, v) ==
-  LET S == {m \in knowsSent[ac] : m.bal = b}
-  IN  \/ \E BQ \in ByzQuorum :
-           \A a \in BQ : \E m \in S : /\ m.acc = a
-                                      /\ m.mbal = -1
-      \/ \E c \in 0..(b-1):
-           /\ \E BQ \in ByzQuorum :
-                \A a \in BQ : \E m \in S : /\ m.acc = a
-                                           /\ m.mbal =< c
-                                           /\ (m.mbal = c) => (m.mval = v)
-           /\ \E WQ \in WeakQuorum :
-                \A a \in WQ :
-                  \E m \in S : /\ m.acc = a
-                               /\ \E r \in m.m2av : /\ r.bal >= c
-                                                    /\ r.val = v
-
-
-vars == << maxBal, maxVBal, maxVVal, 2avSent, knowsSent, bmsgs >>
 
 ProcSet == (Acceptor) \cup (Ballot) \cup (FakeAcceptor)
 
-Init == (* Global variables *)
-        /\ maxBal = [a \in Acceptor |-> -1]
-        /\ maxVBal = [a \in Acceptor |-> -1]
-        /\ maxVVal = [a \in Acceptor |-> None]
-        /\ 2avSent = [a \in Acceptor |-> {}]
-        /\ knowsSent = [a \in Acceptor |-> {}]
-        /\ bmsgs = {}
-
-acceptor(self) == \E b \in Ballot:
-                    \/ /\ (b > maxBal[self]) /\ (sentMsgs("1a", b) # {})
-                       /\ maxBal' = [maxBal EXCEPT ![self] = b]
-                       /\ bmsgs' = (bmsgs \cup {([type |-> "1b", bal |-> b, acc |-> self, m2av |-> 2avSent[self],
-                                                  mbal |-> maxVBal[self], mval |-> maxVVal[self]])})
-                       /\ UNCHANGED <<maxVBal, maxVVal, 2avSent, knowsSent>>
-                    \/ /\ /\ maxBal[self] =< b
-                          /\ \A r \in 2avSent[self] : r.bal < b
-                       /\ \E m \in {ms \in sentMsgs("1c", b) : KnowsSafeAt(self, b, ms.val)}:
-                            /\ bmsgs' = (bmsgs \cup {([type |-> "2av", bal |-> b, val |-> m.val, acc |-> self])})
-                            /\ 2avSent' = [2avSent EXCEPT ![self] = {r \in 2avSent[self] : r.val # m.val}
-                                                                      \cup {[val |-> m.val, bal |-> b]}]
-                       /\ maxBal' = [maxBal EXCEPT ![self] = b]
-                       /\ UNCHANGED <<maxVBal, maxVVal, knowsSent>>
-                    \/ /\ maxBal[self] =< b
-                       /\ \E v \in {vv \in Value :
-                                      \E Q \in ByzQuorum :
-                                         \A aa \in Q :
-                                            \E m \in sentMsgs("2av", b) : /\ m.val = vv
-                                                                          /\ m.acc = aa}:
-                            /\ bmsgs' = (bmsgs \cup {([type |-> "2b", acc |-> self, bal |-> b, val |-> v])})
-                            /\ maxVVal' = [maxVVal EXCEPT ![self] = v]
-                       /\ maxBal' = [maxBal EXCEPT ![self] = b]
-                       /\ maxVBal' = [maxVBal EXCEPT ![self] = b]
-                       /\ UNCHANGED <<2avSent, knowsSent>>
-                    \/ /\ \E S \in SUBSET sentMsgs("1b", b):
-                            knowsSent' = [knowsSent EXCEPT ![self] = knowsSent[self] \cup S]
-                       /\ UNCHANGED <<maxBal, maxVBal, maxVVal, 2avSent, bmsgs>>
-
-
-leader(self) == /\ \/ /\ bmsgs' = (bmsgs \cup {([type |-> "1a", bal |-> self])})
-                   \/ /\ \E S \in SUBSET [type : {"1c"}, bal : {self}, val : Value]:
-                           bmsgs' = (bmsgs \cup S)
-                /\ UNCHANGED << maxBal, maxVBal, maxVVal, 2avSent, knowsSent >>
-
-
-facceptor(self) == /\ \E m \in { mm \in 1bMessage \cup 2avMessage \cup 2bMessage :
-                                 mm.acc = self}:
-                        bmsgs' = (bmsgs \cup {m})
-                   /\ UNCHANGED << maxBal, maxVBal, maxVVal, 2avSent,
-                                   knowsSent >>
-
-
-Next == (\E self \in Acceptor: acceptor(self))
-           \/ (\E self \in Ballot: leader(self))
-           \/ (\E self \in FakeAcceptor: facceptor(self))
-
-Spec == Init /\ [][Next]_vars
-
 \* END TRANSLATION
------------------------------------------------------------------------------
 (***************************************************************************)
 (* As in module PConProof, we now rewrite the next-state relation in a     *)
 (* form more convenient for writing proofs.                                *)
@@ -561,7 +431,6 @@ FakingAcceptor(self) ==
   /\ \E m \in { mm \in 1bMessage \cup 2avMessage \cup 2bMessage : mm.acc = self} :
          bmsgs' = (bmsgs \cup {m})
   /\ UNCHANGED << maxBal, maxVBal, maxVVal, 2avSent, knowsSent >>
------------------------------------------------------------------------------
 (***************************************************************************)
 (* The following lemma describes how the next-state relation Next can be   *)
 (* written in terms of the actions defined above.                          *)
@@ -575,9 +444,7 @@ LEMMA NextDef ==
           \/ \E self \in Ballot : \/ Phase1a(self)
                                   \/ Phase1c(self)
           \/ \E self \in FakeAcceptor : FakingAcceptor(self)
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (*                        THE REFINEMENT MAPPING                           *)
 (***************************************************************************)
@@ -592,8 +459,28 @@ Quorum == {S \cap Acceptor : S \in ByzQuorum}
 THEOREM QuorumTheorem ==
          /\ \A Q1, Q2 \in Quorum : Q1 \cap Q2 # {}
          /\ \A Q \in Quorum : Q \subseteq Acceptor
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* We now define refinement mapping under which our algorithm implements   *)
+(* the algorithm of module PConProof.  First, we define the set msgs that  *)
+(* implements the variable of the same name in PConProof.  There are two   *)
+(* non-obvious parts of the definition.                                    *)
+(*                                                                         *)
+(* 1.  The 1c messages in msgs should just be the ones that are            *)
+(* legal--that is, messages whose value is safe at the indicated ballot.   *)
+(* The obvious way to define legality is in terms of 1b messages that have *)
+(* been sent.  However, this has the effect that sending a 1b message can  *)
+(* add both that 1b message and one or more 1c messages to msgs.  Proving  *)
+(* implementation under this refinement mapping would require adding a     *)
+(* stuttering variable.  Instead, we define the 1c message to be legal if  *)
+(* the set of 1b messages that some acceptor knows were sent confirms its  *)
+(* legality.  Thus, those 1c messages are added to msgs by the LearnsSent  *)
+(* ation, which has no other effect on the refinement mapping.             *)
+(*                                                                         *)
+(* 2.  A 2a message is added to msgs when a quorum of acceptors have       *)
+(* reacted to it by sending a 2av message.                                 *)
+(***************************************************************************)
 msgsOfType(t) == {m \in bmsgs : m.type = t }
 
 acceptorMsgsOfType(t) == {m \in msgsOfType(t) : m.acc \in  Acceptor}
@@ -642,22 +529,28 @@ MaxBallot(S) ==
 LEMMA FiniteSetHasMax ==
         ASSUME NEW S \in SUBSET Int, IsFiniteSet(S), S # {}
         PROVE  \E max \in S : \A x \in S : max >= x
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* Our proofs use this property of MaxBallot.                              *)
+(***************************************************************************)
 THEOREM MaxBallotProp  ==
   ASSUME NEW S \in SUBSET (Ballot \cup {-1}),
          IsFiniteSet(S)
   PROVE  IF S = {} THEN MaxBallot(S) = -1
                    ELSE /\ MaxBallot(S) \in S
                         /\ \A x \in S : MaxBallot(S) >= x
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* We now prove a couple of lemmas about MaxBallot.                        *)
+(***************************************************************************)
 LEMMA MaxBallotLemma1 ==
         ASSUME NEW S \in SUBSET (Ballot \cup {-1}),
                IsFiniteSet(S),
                NEW y \in S, \A x \in S : y >= x
         PROVE  y = MaxBallot(S)
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA MaxBallotLemma2 ==
   ASSUME NEW S \in SUBSET (Ballot \cup {-1}),
@@ -665,7 +558,13 @@ LEMMA MaxBallotLemma2 ==
          IsFiniteSet(S), IsFiniteSet(T)
   PROVE  MaxBallot(S \cup T) = IF MaxBallot(S) >= MaxBallot(T)
                                THEN MaxBallot(S) ELSE MaxBallot(T)
-  PROOF OMITTED
+PROOF OMITTED
+
+(***************************************************************************)
+(* We finally come to our definition of PmaxBal, the state function        *)
+(* substituted for variable maxBal of module PConProof by our refinement   *)
+(* mapping.  We also prove a couple of lemmas about PmaxBal.               *)
+(***************************************************************************)
 
 1bOr2bMsgs == {m \in bmsgs : m.type \in {"1b", "2b"}}
 
@@ -678,7 +577,7 @@ LEMMA PmaxBalLemma1 ==
                 bmsgs' = bmsgs \cup {m},
                 m.type # "1b" /\ m.type # "2b"
          PROVE  PmaxBal' = PmaxBal
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA PmaxBalLemma2 ==
         ASSUME NEW m,
@@ -686,10 +585,22 @@ LEMMA PmaxBalLemma2 ==
                NEW a \in Acceptor,
                m.acc # a
         PROVE  PmaxBal'[a] = PmaxBal[a]
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* Finally, we define the refinement mapping.  As before, for any operator *)
+(* op defined in module PConProof, the following INSTANCE statement        *)
+(* defines P!op to be the operator obtained from op by the indicated       *)
+(* substitutions, along with the implicit substitutions                    *)
+(*                                                                         *)
+(*     Acceptor <- Acceptor,                                               *)
+(*     Quorum   <- Quorum                                                  *)
+(*     Value    <- Value                                                   *)
+(*     maxVBal  <- maxVBal                                                 *)
+(*     maxVVal  <- maxVVal                                                 *)
+(*     msgs     <- msgs                                                    *)
+(***************************************************************************)
 P == INSTANCE PConProof WITH maxBal <- PmaxBal
------------------------------------------------------------------------------
 (***************************************************************************)
 (* We now define the inductive invariant Inv used in our proof.  It is     *)
 (* defined to be the conjunction of a number of separate invariants that   *)
@@ -717,8 +628,13 @@ bmsgsFinite == IsFiniteSet(1bOr2bMsgs)
 LEMMA FiniteMsgsLemma ==
         ASSUME NEW m, bmsgsFinite, bmsgs' = bmsgs \cup {m}
         PROVE  bmsgsFinite'
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* Invariant 1bInv1 asserts that if (good) acceptor `a' has mCBal[a] # -1, *)
+(* then there is a 1c message for ballot mCBal[a] and value mCVal[a] in    *)
+(* the emulated execution of algorithm PCon.                               *)
+(***************************************************************************)
 1bInv1 == \A m \in bmsgs  :
              /\ m.type = "1b"
              /\ m.acc \in Acceptor
@@ -800,7 +716,6 @@ knowsSentInv == \A a \in Acceptor : knowsSent[a] \subseteq msgsOfType("1b")
 Inv ==
  TypeOK /\ bmsgsFinite /\ 1bInv1 /\ 1bInv2 /\ maxBalInv  /\ 2avInv1 /\ 2avInv2
    /\ 2avInv3 /\ accInv /\ knowsSentInv
------------------------------------------------------------------------------
 (***************************************************************************)
 (* We now prove some simple lemmas that are useful for reasoning about     *)
 (* PmaxBal.                                                                *)
@@ -814,7 +729,7 @@ LEMMA PMaxBalLemma3 ==
                                            /\ ma.acc = a}}
                IN  /\ IsFiniteSet(S)
                    /\ S \in SUBSET Ballot
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA PmaxBalLemma4 ==
         ASSUME TypeOK,
@@ -822,14 +737,13 @@ LEMMA PmaxBalLemma4 ==
                bmsgsFinite,
                NEW a \in Acceptor
         PROVE  PmaxBal[a] =< maxBal[a]
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA PmaxBalLemma5 ==
         ASSUME TypeOK, bmsgsFinite, NEW a \in Acceptor
         PROVE  PmaxBal[a] \in Ballot \cup {-1}
-  PROOF OMITTED
+PROOF OMITTED
 
------------------------------------------------------------------------------
 (***************************************************************************)
 (* Now comes a bunch of useful lemmas.                                     *)
 (***************************************************************************)
@@ -843,8 +757,12 @@ LEMMA PmaxBalLemma5 ==
 (* under the substitutions of the refinement mapping.                      *)
 (***************************************************************************)
 LEMMA PNextDef == P!NextDef!:
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* For convenience, we define operators corresponding to subexpressions    *)
+(* that appear in the definition of KnowsSafeAt.                           *)
+(***************************************************************************)
 KSet(a, b) == {m \in knowsSent[a] : m.bal = b}
 KS1(S) == \E BQ \in ByzQuorum : \A a \in BQ :
              \E m \in S : m.acc = a /\ m.mbal = -1
@@ -867,7 +785,7 @@ LEMMA KnowsSafeAtDef ==
         \A a, b, v :
            /\ KnowsSafeAt(a, b, v) <=> KS1(KSet(a,b)) \/ KS2(v, b, KSet(a, b))
            /\ KnowsSafeAt(a, b, v)' <=> KS1(KSet(a,b)') \/ KS2(v, b, KSet(a, b)')
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA MsgsTypeLemma ==
         \A m \in msgs : /\ (m.type = "1a") <=> (m \in msgsOfType("1a"))
@@ -875,8 +793,17 @@ LEMMA MsgsTypeLemma ==
                         /\ (m.type = "1c") <=> (m \in 1cmsgs)
                         /\ (m.type = "2a") <=> (m \in 2amsgs)
                         /\ (m.type = "2b") <=> (m \in acceptorMsgsOfType("2b"))
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* The following lemma is the primed version of MsgsTypeLemma.  That is,   *)
+(* its statement is just the statement of MsgsTypeLemma primed.  It        *)
+(* follows from MsgsTypeLemma by the meta-theorem that if we can prove a   *)
+(* state-predicate F as a (top-level) theorem, then we can deduce F'. This *)
+(* is an instance of propositional temporal-logic reasoning. Alternatively *)
+(* the lemma could be proved using the same reasoning used for the         *)
+(* unprimed version of the theorem.                                        *)
+(***************************************************************************)
 LEMMA MsgsTypeLemmaPrime ==
         \A m \in msgs' : /\ (m.type = "1a") <=> (m \in msgsOfType("1a")')
                          /\ (m.type = "1b") <=> (m \in 1bmsgs')
@@ -884,5 +811,52 @@ LEMMA MsgsTypeLemmaPrime ==
                          /\ (m.type = "2a") <=> (m \in 2amsgs')
                          /\ (m.type = "2b") <=> (m \in acceptorMsgsOfType("2b")')
 PROOF OBVIOUS
+
+(***************************************************************************)
+(* The following lemma describes how msgs is changed by the actions of the *)
+(* algorithm.                                                              *)
+(***************************************************************************)
+
+(***************************************************************************)
+(* We now come to the proof of invariance of our inductive invariant Inv.  *)
+(***************************************************************************)
+
+(***************************************************************************)
+(* We next use the invariance of Inv to prove that algorithm BPCon         *)
+(* implements algorithm PCon under the refinement mapping                  *)
+(* defined by the INSTANCE statement above.                                *)
+(***************************************************************************)
+AbstractSpec == P!Spec
+
+(***************************************************************************)
+(* To see how learning is implemented, we must describe how to determine   *)
+(* that a value has been chosen.  This is done by the following definition *)
+(* of `chosen' to be the set of chosen values.                             *)
+(***************************************************************************)
+chosen == {v \in Value : \E BQ \in ByzQuorum, b \in Ballot :
+                           \A a \in BQ : \E m \in msgs : /\ m.type = "2b"
+                                                         /\ m.acc  = a
+                                                         /\ m.bal  = b
+                                                         /\ m.val  = v}
+(***************************************************************************)
+(* The correctness of our definition of `chosen' is expressed by the       *)
+(* following theorem, which asserts that if a value is in `chosen', then   *)
+(* it is also in the set `chosen' of the emulated execution of the         *)
+(* PCon algorithm.                                                         *)
+(*                                                                         *)
+(* The state function `chosen' does not necessarily equal the              *)
+(* corresponding state function of the PCon algorithm.  It                 *)
+(* requires every (real or fake) acceptor in a ByzQuorum to vote for (send *)
+(* 2b messages) for a value v in the same ballot for v to be in `chosen'   *)
+(* for the BPCon algorithm, but it requires only that every (real)         *)
+(* acceptor in a Quorum vote for v in the same ballot for v to be in the   *)
+(* set `chosen' of the emulated execution of algorithm PCon.               *)
+(*                                                                         *)
+(* Liveness for BPCon requires that, under suitable assumptions, some      *)
+(* value is eventually in `chosen'.  Since we can't assume that a fake     *)
+(* acceptor does anything useful, liveness requires the assumption that    *)
+(* there is a ByzQuorum composed entirely of real acceptors (the first     *)
+(* conjunct of assumption BQLA).                                           *)
+(***************************************************************************)
 
 ==============================================================================

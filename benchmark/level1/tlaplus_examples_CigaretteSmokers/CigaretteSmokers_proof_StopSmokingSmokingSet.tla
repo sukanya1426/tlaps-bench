@@ -1,62 +1,4 @@
----- MODULE CigaretteSmokers_proof_StopSmokingSmokingSet ----
-EXTENDS FiniteSetTheorems, FiniteSets, Integers, TLAPS
-(* ---- Content from module CigaretteSmokers ---- *)
-(***************************************************************************)
-(* A specification of the cigarette smokers problem, originally            *)
-(* described in 1971 by Suhas Patil.                                       *)
-(* https://en.wikipedia.org/wiki/Cigarette_smokers_problem                 *)
-(***************************************************************************)
-
-CONSTANT Ingredients, Offers
-VARIABLE smokers, dealer
-
-(***************************************************************************)
-(* 'Ingredients' is a set of ingredients, originally                       *)
-(* {matches, paper, tobacco}. 'Offers' is a subset of subsets of           *)
-(* ingredients, each missing just one ingredient                           *)
-(***************************************************************************)
-ASSUME OffersAssumption ==
-       /\ Offers \subseteq (SUBSET Ingredients)
-       /\ \A n \in Offers : Cardinality(n) = Cardinality(Ingredients) - 1
-
-(***************************************************************************)
-(* 'smokers' is a function from the ingredient the smoker has              *)
-(* infinite supply of, to a BOOLEAN flag signifying smoker's state         *)
-(* (smoking/not smoking)                                                   *)
-(* 'dealer' is an element of 'Offers', or an empty set                     *)
-(***************************************************************************)
-TypeOK == /\ smokers \in [Ingredients -> [smoking: BOOLEAN]]
-          /\ dealer  \in Offers \/ dealer = {}
-          
-vars == <<smokers, dealer>>
-
-ChooseOne(S, P(_)) == CHOOSE x \in S : P(x) /\ \A y \in S : P(y) => y = x
-
-Init == /\ smokers = [r \in Ingredients |-> [smoking |-> FALSE]]
-        /\ dealer \in Offers
-        
-startSmoking == /\ dealer /= {}
-                /\ smokers' = [r \in Ingredients |-> [smoking |-> {r} \cup 
-                                                      dealer = Ingredients]]
-                /\ dealer' = {}
-                
-stopSmoking == /\ dealer = {}
-               /\ LET r == ChooseOne(Ingredients,
-                                     LAMBDA x : smokers[x].smoking)
-                  IN smokers' = [smokers EXCEPT ![r].smoking = FALSE] 
-               /\ dealer' \in Offers
-
-Next == startSmoking \/ stopSmoking
-
-Spec == Init /\ [][Next]_vars
-FairSpec == Spec /\ WF_vars(Next)
-
-(***************************************************************************)
-(* An invariant checking that at most one smoker smokes at any particular  *)
-(* moment                                                                  *)
-(***************************************************************************)
-AtMostOne == Cardinality({r \in Ingredients : smokers[r].smoking}) <= 1
-
+--------------------- MODULE CigaretteSmokers_proof_StopSmokingSmokingSet ---------------------------
 (***************************************************************************)
 (* TLAPS proofs of                                                         *)
 (*                                                                         *)
@@ -66,6 +8,7 @@ AtMostOne == Cardinality({r \in Ingredients : smokers[r].smoking}) <= 1
 (* AtMostOne (at most one smoker is smoking) is inductive together with    *)
 (* TypeOK once we know `Ingredients` is finite.                            *)
 (***************************************************************************)
+EXTENDS CigaretteSmokers, FiniteSets, FiniteSetTheorems, TLAPS
 
 (***************************************************************************)
 (* Ingredients is implicitly finite: the spec uses Cardinality on it.      *)
@@ -78,36 +21,59 @@ ASSUME IngredientsFinite == IsFiniteSet(Ingredients)
 (* nondeterministically choose dealer' \in Offers.                         *)
 (***************************************************************************)
 THEOREM TypeCorrect == Spec => []TypeOK
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* AtMostOne: at most one smoker is smoking.                               *)
+(* Combined invariant with TypeOK (TypeOK is needed to type-check the     *)
+(* set comprehension).                                                     *)
+(***************************************************************************)
 SmokingSet == {r \in Ingredients : smokers[r].smoking}
 
 LEMMA SmokingSetFinite ==
   ASSUME TypeOK
   PROVE  /\ IsFiniteSet(SmokingSet)
          /\ Cardinality(SmokingSet) \in Nat
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA AtMostOneViaSmokingSet == AtMostOne <=> Cardinality(SmokingSet) <= 1
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* The spec's unnamed ASSUME extracted as a fact for use in proofs.        *)
+(***************************************************************************)
 LEMMA OffersFact ==
   /\ Offers \subseteq SUBSET Ingredients
   /\ \A n \in Offers : Cardinality(n) = Cardinality(Ingredients) - 1
-  PROOF OMITTED
+PROOF OMITTED
+
+(***************************************************************************)
+(* Cardinality(Ingredients) >= 1 follows from the existence of any         *)
+(* dealer \in Offers (Offers is non-empty by Init's `dealer \in Offers`,  *)
+(* but more directly: any d \in Offers has |d| = |Ingredients| - 1 \in Nat *)
+(* which implies |Ingredients| >= 1.  We don't actually need this for the  *)
+(* proof of AtMostOne, just for OffersFact reasoning).                     *)
+(***************************************************************************)
 
 LEMMA UniqueComplement2 ==
   ASSUME TypeOK, dealer \in Offers
   PROVE  Cardinality({r \in Ingredients : {r} \cup dealer = Ingredients}) = 1
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* The smoking set after `startSmoking` equals the set of ingredients     *)
+(* that complete the dealer.                                               *)
+(***************************************************************************)
 LEMMA StartSmokingSmokingSet ==
   ASSUME TypeOK, startSmoking
   PROVE  /\ smokers' \in [Ingredients -> [smoking : BOOLEAN]]
          /\ {r \in Ingredients : smokers'[r].smoking}
               = {r \in Ingredients : {r} \cup dealer = Ingredients}
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* The smoking set after `stopSmoking` is a subset of the previous one.   *)
+(***************************************************************************)
 LEMMA StopSmokingSmokingSet ==
   ASSUME TypeOK, stopSmoking
   PROVE  /\ smokers' \in [Ingredients -> [smoking : BOOLEAN]]
@@ -115,4 +81,9 @@ LEMMA StopSmokingSmokingSet ==
               \subseteq {r \in Ingredients : smokers[r].smoking}
 PROOF OBVIOUS
 
-========================================
+(***************************************************************************)
+(* Main inductive invariant.                                               *)
+(***************************************************************************)
+Inv == TypeOK /\ AtMostOne
+
+============================================================================

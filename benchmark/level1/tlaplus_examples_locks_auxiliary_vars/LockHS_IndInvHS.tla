@@ -1,130 +1,35 @@
----- MODULE LockHS_IndInvHS ----
-EXTENDS Integers, NaturalsInduction, TLAPS
-(* ---- Content from module Lock ---- *)
+-------------------------------- MODULE LockHS_IndInvHS --------------------------------
 
 (*****************************************************************************)
-(* This module contains the specification of an abstract lock.               *)
-(* The proof for mutual exclusion is also detailed.                          *)
+(* This module contains the specification of a lock with auxiliary variables.*)
+(* 1. A history variable `h_turn` is needed to remember the assignement of   *)
+(*    the turn variable used inside the Peterson specification.              *)
+(* 2. A stuttering variable `s` is added to force the stuttering of the Lock *)
+(*    specification to mimick the 3 steps taken by Peterson to enter the     *)
+(*    critical section.                                                      *)
+(* With these variables, one can finally refine LockHS to Peterson, giving   *)
+(* an equivalence between the Lock and Peterson specifications.              *)
+(*                                                                           *)
+(* The stuttering is achieved using the Stuttering module created by Leslie  *)
+(* Lamport and comes from to the paper "Auxiliary Variables in TLA+".        *)
+(* The module used here has been modified, see explanations at the end of    *) 
+(* the Stuttering module.                                                    *)
 (*****************************************************************************)
 
+EXTENDS LockHS
 
-(*
---algorithm Lock{
-    variables lock = 1;
-    
-    macro Lock(l){
-      await l = 1;
-      l := 0;
-    }
-    
-    macro Unlock(l){
-      l := 1;
-    }
-  
-    process(proc \in 1..2){
-l0:   while(TRUE){
-        skip; \* non-critical section
-l1:     Lock(lock);
-cs:     skip; \* critical section
-l2:     Unlock(lock);
-      }
-    }
-}
-*)
-\* BEGIN TRANSLATION (chksum(pcal) = "f820ffbb" /\ chksum(tla) = "24b4f3dd")
-VARIABLES pc, lock
-
-vars == << pc, lock >>
-
-ProcSet == (1..2)
-
-Init == (* Global variables *)
-        /\ lock = 1
-        /\ pc = [self \in ProcSet |-> "l0"]
-
-l0(self) == /\ pc[self] = "l0"
-            /\ TRUE
-            /\ pc' = [pc EXCEPT ![self] = "l1"]
-            /\ lock' = lock
-
-l1(self) == /\ pc[self] = "l1"
-            /\ lock = 1
-            /\ lock' = 0
-            /\ pc' = [pc EXCEPT ![self] = "cs"]
-
-cs(self) == /\ pc[self] = "cs"
-            /\ TRUE
-            /\ pc' = [pc EXCEPT ![self] = "l2"]
-            /\ lock' = lock
-
-l2(self) == /\ pc[self] = "l2"
-            /\ lock' = 1
-            /\ pc' = [pc EXCEPT ![self] = "l0"]
-
-proc(self) == l0(self) \/ l1(self) \/ cs(self) \/ l2(self)
-
-Next == (\E self \in 1..2: proc(self))
-
-Spec == Init /\ [][Next]_vars
-
-\* END TRANSLATION 
-
-TypeOK ==
-  /\ lock \in {0, 1}
-  /\ pc \in [ProcSet -> {"l0", "l1", "cs", "l2"}]
-
-lockcs(i) ==
-  pc[i] \in {"cs", "l2"}
-
-LockInv == 
-  /\ \A i, j \in ProcSet: (i # j) => ~(lockcs(i) /\ lockcs(j))
-  /\ (\E p \in ProcSet: lockcs(p)) => lock = 0
-
--------------------------------------------------------------------------------
-
-LEMMA Typing == Spec => []TypeOK
-  PROOF OMITTED
-
-THEOREM MutualExclusion == Spec => []LockInv
-  PROOF OMITTED
-
-VARIABLE h_turn
-NoHistoryChange(A) == A /\ UNCHANGED h_turn
+\* History variable to remember the turn variable
 
 \* Stuttering variable
-VARIABLE s
 INSTANCE Stuttering
 
 \* This theorem justifies the validity of the introduced stuttering variable
 \* in definition l1HS
 THEOREM StutterConstantCondition(1..2, 1, LAMBDA j : j-1)
-  PROOF OMITTED
-
--------------------------------------------------------------------------------
-
-Other(p) == IF p = 1 THEN 2 ELSE 1 
-
-InitHS == Init /\ (h_turn = 1) /\ (s = top)
+PROOF OMITTED
 
 \* Adding 2 stuttering steps after an l1(self) transition
 \* Updating the history variable during the right stutter step
-l1HS(self) == 
-  /\ PostStutter(l1(self), "l1", self, 1, 2, LAMBDA j : j-1)
-  /\ h_turn' = IF s' # top THEN IF s'.val = 1 THEN Other(self)
-                                              ELSE h_turn
-                           ELSE h_turn
-
-procHS(self) == 
-  \/ NoStutter(NoHistoryChange(l0(self)))
-  \/ l1HS(self)
-  \/ NoStutter(NoHistoryChange(cs(self)))
-  \/ NoStutter(NoHistoryChange(l2(self)))
-
-NextHS == (\E self \in 1..2: procHS(self))
-
-SpecHS == InitHS /\ [][NextHS]_<<vars, h_turn, s>>
-
--------------------------------------------------------------------------------
 
 TypeOKHS == 
   /\ TypeOK
@@ -159,8 +64,6 @@ P == INSTANCE Peterson WITH
       turn <- h_turn
 PSpec == P!Spec
 
--------------------------------------------------------------------------------
-
 (*****************************************************************************)
 (* Proofs using stuttering variables can be quite complicated as the backend *)
 (* solvers can be quite overwhelmed by the different transitions made        *)
@@ -171,15 +74,15 @@ PSpec == P!Spec
 (*****************************************************************************)
 
 LEMMA TypingHS == SpecHS => []TypeOKHS
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA AddingVariables == SpecHS => Spec
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA MutualExclusionHS == SpecHS => []LockInv
-  PROOF OMITTED
+PROOF OMITTED
 
 LEMMA IndInvHS == SpecHS => []InvHS
 PROOF OBVIOUS
 
-========================================
+===============================================================================

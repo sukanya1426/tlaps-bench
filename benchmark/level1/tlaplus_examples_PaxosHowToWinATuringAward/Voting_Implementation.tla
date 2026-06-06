@@ -1,4 +1,4 @@
------------------------------- MODULE Voting_Implementation ------------------------------- 
+------------------------------ MODULE Voting_Implementation -------------------------------
 (***************************************************************************)
 (* This is a high-level algorithm in which a set of processes              *)
 (* cooperatively choose a value.  It is a high-level abstraction of the    *)
@@ -35,7 +35,6 @@ ASSUME QuorumAssumption ==
 (* distinguish ballots from natural numbers used for other purposes.       *)
 (***************************************************************************)
 Ballot == Nat
------------------------------------------------------------------------------
 (***************************************************************************)
 (* The algorithm works by having acceptors cast votes in numbered ballots. *)
 (* Each acceptor can cast one or more votes, where each vote cast by an    *)
@@ -180,7 +179,6 @@ ShowsSafeAt(Q, b, v) ==
 THEOREM ShowsSafety  == 
           Inv  =>  \A Q \in Quorum, b \in Ballot, v \in Value :
                      ShowsSafeAt(Q, b, v) => SafeAt(b, v)
------------------------------------------------------------------------------
 (***************************************************************************)
 (* Finally, we get to the definition of the algorithm.  The initial        *)
 (* predicate is obvious.                                                   *)
@@ -232,15 +230,12 @@ Next  ==  \E a \in Acceptor, b \in Ballot :
              \/ \E v \in Value : VoteFor(a, b, v)
 
 Spec == Init /\ [][Next]_<<votes, maxBal>>
------------------------------------------------------------------------------
 (***************************************************************************)
 (* This theorem asserts that Inv is an invariant of the algorithm.  The    *)
 (* high-level steps in its proof are given.                                *)
 (***************************************************************************)
 THEOREM  Invariance  ==  Spec => []Inv
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (* This INSTANCE statement imports definitions from module Consensus into  *)
 (* the current module.  All definition in module Consensus can be expanded *)
@@ -269,4 +264,39 @@ C == INSTANCE Consensus
 THEOREM  Implementation  ==  Spec  => C!Spec
 PROOF OBVIOUS
 
+(***************************************************************************)
+(* This Voting specification comes with a TLC model named SmallModel.      *)
+(* That model tells TLC that Spec is the specification, that Acceptor and  *)
+(* Values should equal sets of model values with 3 acceptors and 2 values  *)
+(* and Quorums should equal the indicated set of values, and that it       *)
+(* should check theorems Invariance and Implementation.  Observe that you  *)
+(* can't tell TLC simply to check those theorems; you have to tell TLC to  *)
+(* check the properties the theorems assert that Spec satisfies.  (Instead *)
+(* of telling TLC that Inv should be an invariant, you can tell it that    *)
+(* the spec should satisfy the temporal property []Inv.)                   *)
+(*                                                                         *)
+(* Even though the constants are finite sets, the spec has infinitely many *)
+(* reachable sets because a ballot number can be any element of the set    *)
+(* Nat of natural numbers.  The model modifies the spec so it has a finite *)
+(* set of reachable states by using a definition override (on the Spec     *)
+(* Options page) to redefine Ballot to equal 0..2.  (Alternatively, we     *)
+(* could override the definition of Nat to equal 0..2.)                    *)
+(*                                                                         *)
+(* Run TLC on the model.  It should just take a couple of seconds.         *)
+(*                                                                         *)
+(* After doing that, show why the assumption that any pair of quorums has  *)
+(* an element in common is necessary by modifying the model so that        *)
+(* assumption doesn't hold.  (It's best to clone SmallModel and modify the *)
+(* clone.) Since TLC reports an error if an assumption isn't true, you     *)
+(* will have to comment out the second conjunct of the ASSUME statement,   *)
+(* which asserts that assumption.  Comments can be written as follows:     *)
+(*                                                                         *)
+(*    \* This is an end-of-line comment.                                   *)
+(*                                                                         *)
+(*    (* This is another way to write a comment.                           *)
+(*          Note that comments can be nested.    *)                        *)
+(*                                                                         *)
+(* To help you see what the problem is, use the Trace Explorer on the      *)
+(* Error page to show the value of `chosen' in each state of the trace.    *)
+(***************************************************************************)  
 =============================================================================

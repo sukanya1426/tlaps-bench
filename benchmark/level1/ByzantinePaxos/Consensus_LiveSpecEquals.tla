@@ -1,4 +1,4 @@
------------------------------ MODULE Consensus_LiveSpecEquals ------------------------------ 
+----------------------------- MODULE Consensus_LiveSpecEquals ------------------------------
 (***************************************************************************)
 (* The consensus problem requires a set of processes to choose a single    *)
 (* value.  This module specifies the problem by specifying exactly what    *)
@@ -92,7 +92,6 @@ Next == /\ chosen = {}
 Spec == Init /\ [][Next]_vars
 
 \***** END TRANSLATION
------------------------------------------------------------------------------
 (***************************************************************************)
 (* We now prove the safety property that at most one value is chosen.  We  *)
 (* first define the type-correctness invariant TypeOK, and then define Inv *)
@@ -171,12 +170,17 @@ SingleCardinalityTest ==
 (***************************************************************************)
 LEMMA InductiveInvariance ==
            Inv /\ [Next]_vars => Inv'
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* TLAPS does not yet handle temporal logic reasoning.  Therefore, proofs  *)
+(* of temporal steps are omitted.  However, we indicate in comments what   *)
+(* we expect the proofs to look like when TLAPS does prove temporal        *)
+(* formulas.                                                               *)
+(***************************************************************************)
 THEOREM Invariance == Spec => []Inv 
-  PROOF OMITTED
+PROOF OMITTED
 
------------------------------------------------------------------------------
 (***************************************************************************)
 (* We now define LiveSpec to be the algorithm's specification with the     *)
 (* added fairness condition of weak fairness of the next-state relation,   *)
@@ -214,12 +218,28 @@ ASSUME ValueNonempty == Value # {}
 LEMMA EnabledDef ==
         TypeOK => 
           ((ENABLED <<Next>>_vars) <=> (chosen = {}))
-  PROOF OMITTED
+PROOF OMITTED
 
+(***************************************************************************)
+(* Here is our proof that Livespec implies Success.  It uses the standard  *)
+(* TLA proof rules.  For example RuleWF1 is defined in the TLAPS module to *)
+(* be the rule WF1 discussed in                                            *)
+(*                                                                         *)
+(* `. AUTHOR  = "Leslie Lamport",                                          *)
+(*    TITLE   = "The Temporal Logic of Actions",                           *)
+(*    JOURNAL = toplas,                                                    *)
+(*    volume  = 16,                                                        *)
+(*    number  = 3,                                                         *)
+(*    YEAR    = 1994,                                                      *)
+(*    month   = may,                                                       *)
+(*    PAGES   = "872--923"         .'                                      *)
+(*                                                                         *)
+(* PTL stands for propositional temporal logic reasoning.  We expect that, *)
+(* when TLAPS handles temporal reasoning, it will use a decision procedure *)
+(* for PTL.                                                                *)
+(***************************************************************************)
 THEOREM LiveSpec => Success
-  PROOF OMITTED
-
------------------------------------------------------------------------------
+PROOF OMITTED
 (***************************************************************************)
 (* The following theorem is used in the refinement proof in module         *)
 (* VoteProof.                                                              *)
@@ -227,5 +247,8 @@ THEOREM LiveSpec => Success
 THEOREM LiveSpecEquals ==
           LiveSpec <=> Spec /\ ([]<><<Next>>_vars \/ []<>(chosen # {}))
 PROOF OBVIOUS
-
 =============================================================================
+\* Modification History
+\* Last modified Sat Nov 16 22:17:07 CST 2019 by hengxin
+\* Last modified Tue Feb 14 13:35:49 PST 2012 by lamport
+\* Last modified Mon Feb 07 14:46:59 PST 2011 by lamport
