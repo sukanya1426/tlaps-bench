@@ -725,7 +725,8 @@ def compute_sibling_deps(targets):
 
 
 def process_file(source_path, audit_writer, output_root, module_subdir=None,
-                 generated_paths=None, shared_model=False, skip_model_modules=()):
+                 generated_paths=None, shared_model=False, skip_model_modules=(),
+                 allow_no_proof=False):
     """Generate L2 benchmarks for one source .tla file. Returns count emitted.
 
     If `generated_paths` is a list, each generated target benchmark path is
@@ -775,7 +776,8 @@ def process_file(source_path, audit_writer, output_root, module_subdir=None,
         target_thm = entry[0]
         line = target_thm['loc']['line_start']
         name = target_thm['name'] or f"<unnamed L{line}>"
-        if not _has_manual_proof(target_thm, source_lines):
+        has_proof = _has_manual_proof(target_thm, source_lines)
+        if not has_proof and not allow_no_proof:
             audit_writer.write(
                 f"[level2-audit] {source_path}: top-level THEOREM {name} at line "
                 f"{line} has no manual TLAPS proof body — skipped (filter A)\n"
@@ -804,6 +806,17 @@ def process_file(source_path, audit_writer, output_root, module_subdir=None,
             audit_writer.write(
                 f"[level2-audit] {source_path}: top-level THEOREM {name} at line "
                 f"{line} has an OMITTED sub-step — kept (goal vetted true; hard "
+                f"from-scratch benchmark)\n"
+            )
+            survivors.append(entry)
+        elif not has_proof:
+            # --allow-no-proof: the source carries only PROOF OBVIOUS/OMITTED
+            # (no reference proof), but the goal is a vetted hard property
+            # (e.g. the ZooKeeper Zab safety theorems). L2 grades by tlapm, not
+            # by the human reference, so keep it as a from-scratch benchmark.
+            audit_writer.write(
+                f"[level2-audit] {source_path}: top-level THEOREM {name} at line "
+                f"{line} has no manual proof — kept (--allow-no-proof; tlapm-graded "
                 f"from-scratch benchmark)\n"
             )
             survivors.append(entry)
@@ -947,6 +960,11 @@ def main():
                              'and have spec-based tasks EXTEND it instead of inlining '
                              'the spec (de-duplicates the spec; grader resolves the '
                              'co-located model automatically).')
+    parser.add_argument('--allow-no-proof', action='store_true',
+                        help='Keep top-level theorems whose source has only PROOF '
+                             'OBVIOUS/OMITTED (no reference proof). Use for vetted '
+                             'hard from-scratch benchmarks (e.g. ZooKeeper Zab) that '
+                             'are graded by tlapm, not against a human reference.')
     args = parser.parse_args()
 
     output_root = os.path.abspath(args.output_dir)
@@ -985,7 +1003,8 @@ def main():
                                       module_subdir=subdir,
                                       generated_paths=generated_paths,
                                       shared_model=args.shared_model,
-                                      skip_model_modules=sibling_deps.get(key, set()))
+                                      skip_model_modules=sibling_deps.get(key, set()),
+                                      allow_no_proof=args.allow_no_proof)
             except Exception as e:
                 audit_writer.write(f"[level2-audit] {path}: ERROR {e!r}\n")
                 print(f"  ERROR: {e}", file=sys.stderr)

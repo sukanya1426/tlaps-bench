@@ -15,8 +15,16 @@ from __future__ import annotations
 
 import glob
 import os
+import re
 from abc import ABC
 from typing import Optional
+
+
+# A top-level proof goal — `THEOREM`/`LEMMA`/`COROLLARY`/`PROPOSITION` at the
+# start of a logical line (optionally named). This is what makes a file a
+# benchmark to be proved, as opposed to a shared model / dependency layer.
+_TOP_LEVEL_GOAL = re.compile(r'^[ \t]*(THEOREM|LEMMA|COROLLARY|PROPOSITION)\b',
+                             re.MULTILINE)
 
 
 class Level(ABC):
@@ -47,9 +55,24 @@ class Level(ABC):
         """Distinguish a benchmark from a dependency .tla copy.
 
         Both the L1 and L2 generators name benchmarks `SourceFile_TheoremName.tla`
-        and dependencies as plain module names; the underscore is the tell.
+        and most dependencies as plain module names, so an underscore in the
+        module name is a necessary signal. But it is NOT sufficient: a shared
+        model layer can itself carry an underscore — either because the source
+        module name does (e.g. `ZkV3_7_0.tla`) or by the `_proof.tla` convention
+        (e.g. `EWD840_proof.tla`, which other tasks EXTEND but which states no
+        goal of its own). A real benchmark always carries a top-level proof goal
+        (THEOREM/LEMMA/...), while a model/dependency layer does not. Require
+        BOTH so the model file is treated as a dependency, not run as a task.
         """
-        return '_' in os.path.splitext(os.path.basename(path))[0]
+        name = os.path.splitext(os.path.basename(path))[0]
+        if '_' not in name:
+            return False
+        try:
+            with open(path, 'r') as f:
+                text = f.read()
+        except OSError:
+            return False
+        return _TOP_LEVEL_GOAL.search(text) is not None
 
     def get_benchmark_files(self, filter_pattern: Optional[str] = None) -> list[str]:
         files = sorted(
