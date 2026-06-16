@@ -55,8 +55,12 @@ def run_killgroup(cmd: list[str], timeout: float, cwd: str) -> tuple[str, str, i
     ``subprocess.TimeoutExpired`` after cleanup.
     """
     proc = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-        cwd=cwd, start_new_session=True,
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        cwd=cwd,
+        start_new_session=True,
     )
     try:
         out, err = proc.communicate(timeout=timeout)

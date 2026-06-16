@@ -43,18 +43,17 @@ def dump_raw(tla_path: str, timeout: int = 180) -> dict:
     """Run SANY on ``tla_path`` and return the raw JSON dict."""
     res = subprocess.run(
         [_RUN_SH, tla_path],
-        capture_output=True, text=True, timeout=timeout,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
     )
     out = res.stdout
     idx = out.find(_MARKER)
     if idx < 0:
         err = (res.stderr or "").strip()
-        raise SanyError(
-            f"SANY produced no dump for {tla_path} (exit {res.returncode}). "
-            f"stderr: {err[:400]}"
-        )
+        raise SanyError(f"SANY produced no dump for {tla_path} (exit {res.returncode}). stderr: {err[:400]}")
     try:
-        return json.loads(out[idx + len(_MARKER):])
+        return json.loads(out[idx + len(_MARKER) :])
     except json.JSONDecodeError as e:
         raise SanyError(f"Could not parse SANY dump for {tla_path}: {e}") from e
 
@@ -97,8 +96,9 @@ def _as_dep_dirs(dep_dir, dep_dirs) -> list:
     return []
 
 
-def dump_normalized(tla_path: str, dep_dir: str | None = None,
-                    timeout: int = 180, dep_dirs: list | None = None) -> Module:
+def dump_normalized(
+    tla_path: str, dep_dir: str | None = None, timeout: int = 180, dep_dirs: list | None = None
+) -> Module:
     """Parse ``tla_path`` robustly: correct filename + supply dependency modules.
 
     Two real-world hurdles this clears:
@@ -119,8 +119,12 @@ def dump_normalized(tla_path: str, dep_dir: str | None = None,
     dirs = _as_dep_dirs(dep_dir, dep_dirs) or [os.path.dirname(os.path.abspath(tla_path))]
     base = os.path.basename(tla_path)
     # Fast path: filename matches AND a single dep dir == the file's own dir.
-    if mod and base == f"{mod}.tla" and len(dirs) == 1 and \
-            os.path.abspath(dirs[0]) == os.path.dirname(os.path.abspath(tla_path)):
+    if (
+        mod
+        and base == f"{mod}.tla"
+        and len(dirs) == 1
+        and os.path.abspath(dirs[0]) == os.path.dirname(os.path.abspath(tla_path))
+    ):
         return dump(tla_path, timeout=timeout)
 
     tmp = tempfile.mkdtemp(prefix="tlacore_sany_")
@@ -128,19 +132,17 @@ def dump_normalized(tla_path: str, dep_dir: str | None = None,
         for d in dirs:
             for dep in glob.glob(os.path.join(d, "*.tla")):
                 shutil.copy2(dep, os.path.join(tmp, os.path.basename(dep)))
-        target = os.path.join(tmp, f"{mod}.tla") if mod else \
-            os.path.join(tmp, base)
+        target = os.path.join(tmp, f"{mod}.tla") if mod else os.path.join(tmp, base)
         shutil.copy2(tla_path, target)
         return dump(target, timeout=timeout)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def try_dump_normalized(tla_path: str, dep_dir: str | None = None,
-                        timeout: int = 180,
-                        dep_dirs: list | None = None) -> Module | None:
+def try_dump_normalized(
+    tla_path: str, dep_dir: str | None = None, timeout: int = 180, dep_dirs: list | None = None
+) -> Module | None:
     try:
-        return dump_normalized(tla_path, dep_dir=dep_dir, timeout=timeout,
-                               dep_dirs=dep_dirs)
+        return dump_normalized(tla_path, dep_dir=dep_dir, timeout=timeout, dep_dirs=dep_dirs)
     except (SanyError, subprocess.TimeoutExpired, OSError):
         return None

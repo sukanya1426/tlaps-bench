@@ -36,11 +36,16 @@ class CopilotBackend(AgentBackend):
         return [
             "copilot",
             "--allow-all",
-            "-C", workspace,
-            "--output-format", "json",
-            "--model", self.model,
-            "--effort", "max",
-            "--log-level", "none",
+            "-C",
+            workspace,
+            "--output-format",
+            "json",
+            "--model",
+            self.model,
+            "--effort",
+            "max",
+            "--log-level",
+            "none",
             "--no-color",
             "--disable-builtin-mcps",
             "--no-custom-instructions",
@@ -51,19 +56,27 @@ class CopilotBackend(AgentBackend):
         # Fast path: a token env var is set (headless auth).
         # Checked by the CLI in this order: COPILOT_GITHUB_TOKEN, GH_TOKEN,
         # GITHUB_TOKEN.
-        if (os.environ.get("COPILOT_GITHUB_TOKEN")
-                or os.environ.get("GH_TOKEN")
-                or os.environ.get("GITHUB_TOKEN")):
+        if os.environ.get("COPILOT_GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN"):
             return None
         # Slow path: probe the CLI with a trivial prompt. This covers OAuth
         # (`copilot login`) / credential-store auth that env-var checks can't
         # see. --disable-builtin-mcps keeps the probe fast and offline-safe.
         try:
             r = subprocess.run(
-                ["copilot", "--allow-all", "--disable-builtin-mcps",
-                 "--no-color", "--no-auto-update",
-                 "--output-format", "text", "-p", "ok"],
-                capture_output=True, text=True, timeout=60,
+                [
+                    "copilot",
+                    "--allow-all",
+                    "--disable-builtin-mcps",
+                    "--no-color",
+                    "--no-auto-update",
+                    "--output-format",
+                    "text",
+                    "-p",
+                    "ok",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             if r.returncode == 0:
                 return None
@@ -84,8 +97,8 @@ class CopilotBackend(AgentBackend):
         # host varies by plan, so allow all three; --no-auto-update means the
         # CLI never needs api.github.com for a release check.
         return [
-            "api.githubcopilot.com",            # individual / pro
-            "api.business.githubcopilot.com",   # business
+            "api.githubcopilot.com",  # individual / pro
+            "api.business.githubcopilot.com",  # business
             "api.enterprise.githubcopilot.com",  # enterprise
         ]
 

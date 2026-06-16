@@ -30,21 +30,26 @@ def check(ctx: CheckContext) -> list[Issue]:
     # by admitted_statement as CHEATING; don't also report them as INCOMPLETE.
     # ctx.solution is None on the tlapm fallback path (SANY couldn't parse); the
     # admitted theorems are then surfaced by admitted_fallback instead.
-    admitted_lines = {
-        t.loc.line_start for t in ctx.solution.theorems
-        if t.is_admitted and t.loc
-    } if ctx.solution is not None else set()
+    admitted_lines = (
+        {t.loc.line_start for t in ctx.solution.theorems if t.is_admitted and t.loc}
+        if ctx.solution is not None
+        else set()
+    )
     issues: list[Issue] = []
     sol_name = ctx.solution.filename if ctx.solution is not None else ctx.target_name
     for ip in ctx.summary.incomplete:
         if ip.theorem_line in admitted_lines:
             continue
         locs = ", ".join(str(x) for x in ip.missing_lines) or "?"
-        issues.append(Issue(
-            vector=name,
-            severity=Severity.INCOMPLETE,
-            message=(f"Theorem at line {ip.theorem_line} has {ip.missing_count} "
-                     f"unjustified step(s) (bare QED / missing proof) at line(s) {locs}."),
-            location=f"{sol_name}:{ip.theorem_line}",
-        ))
+        issues.append(
+            Issue(
+                vector=name,
+                severity=Severity.INCOMPLETE,
+                message=(
+                    f"Theorem at line {ip.theorem_line} has {ip.missing_count} "
+                    f"unjustified step(s) (bare QED / missing proof) at line(s) {locs}."
+                ),
+                location=f"{sol_name}:{ip.theorem_line}",
+            )
+        )
     return issues

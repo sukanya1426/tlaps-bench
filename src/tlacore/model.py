@@ -33,19 +33,21 @@ class Loc:
         if not d:
             return None
         return cls(
-            d.get("line_start", 0), d.get("column_start", 0),
-            d.get("line_end", 0), d.get("column_end", 0),
+            d.get("line_start", 0),
+            d.get("column_start", 0),
+            d.get("line_end", 0),
+            d.get("column_end", 0),
         )
 
 
 @dataclass
 class Theorem:
-    name: str | None            # None for unnamed THEOREM ... (e.g. the target)
+    name: str | None  # None for unnamed THEOREM ... (e.g. the target)
     loc: Loc | None
     statement_loc: Loc | None
-    proof_loc: Loc | None       # None => no proof clause at all (bare theorem)
-    proof_is_omitted: bool         # True => PROOF OMITTED
-    references: list[str]          # theorem/lemma names cited by BY/USE/DEFS
+    proof_loc: Loc | None  # None => no proof clause at all (bare theorem)
+    proof_is_omitted: bool  # True => PROOF OMITTED
+    references: list[str]  # theorem/lemma names cited by BY/USE/DEFS
     statement_references: list[str]
     shape: dict
     raw: dict = field(default_factory=dict, repr=False)
@@ -84,7 +86,7 @@ class Theorem:
 @dataclass
 class Assumption:
     name: str | None
-    is_axiom: bool                 # True => AXIOM, False => ASSUME/ASSUMPTION
+    is_axiom: bool  # True => AXIOM, False => ASSUME/ASSUMPTION
     loc: Loc | None
     references: list[str]
 
@@ -100,8 +102,8 @@ class Assumption:
 
 @dataclass
 class Instance:
-    name: str | None            # e.g. "C" in `C == INSTANCE Consensus`
-    module: str | None          # the instantiated module name
+    name: str | None  # e.g. "C" in `C == INSTANCE Consensus`
+    module: str | None  # the instantiated module name
     loc: Loc | None
     references: list[str]
 
@@ -137,6 +139,7 @@ class Operator:
 @dataclass
 class Symbol:
     """A CONSTANT or VARIABLE declaration."""
+
     name: str
     loc: Loc | None
 

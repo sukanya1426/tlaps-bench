@@ -36,10 +36,12 @@ def check(ctx: CheckContext) -> list[Issue]:
         except OSError:
             continue
         if a != b:
-            issues.append(Issue(
-                vector=name,
-                severity=Severity.CHEATING,
-                message=f"Given dependency '{mod}.tla' was modified — not allowed.",
-                location=f"{mod}.tla",
-            ))
+            issues.append(
+                Issue(
+                    vector=name,
+                    severity=Severity.CHEATING,
+                    message=f"Given dependency '{mod}.tla' was modified — not allowed.",
+                    location=f"{mod}.tla",
+                )
+            )
     return issues

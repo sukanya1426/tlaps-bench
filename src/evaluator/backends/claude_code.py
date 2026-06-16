@@ -31,10 +31,13 @@ class ClaudeCodeBackend(AgentBackend):
             "--print",
             "--dangerously-skip-permissions",
             "--no-session-persistence",
-            "--output-format", "stream-json",
+            "--output-format",
+            "stream-json",
             "--verbose",
-            "--effort", "max",
-            "--model", self.model,
+            "--effort",
+            "max",
+            "--model",
+            self.model,
         ]
 
     def check_auth(self) -> str | None:
@@ -47,9 +50,10 @@ class ClaudeCodeBackend(AgentBackend):
         # checks can't see.
         try:
             r = subprocess.run(
-                ["claude", "--print", "--no-session-persistence",
-                 "--output-format", "text", "ok"],
-                capture_output=True, text=True, timeout=30,
+                ["claude", "--print", "--no-session-persistence", "--output-format", "text", "ok"],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if r.returncode == 0:
                 return None
@@ -130,15 +134,12 @@ class ClaudeCodeBackend(AgentBackend):
                                     result_content = block.get("content", "")
                                     if isinstance(result_content, list):
                                         result_content = "\n".join(
-                                            c.get("text", "") if isinstance(c, dict) else str(c)
-                                            for c in result_content
+                                            c.get("text", "") if isinstance(c, dict) else str(c) for c in result_content
                                         )
                                     result_content = str(result_content)
                                     if len(result_content) > 3000:
                                         result_content = (
-                                            result_content[:1500]
-                                            + "\n... (truncated) ...\n"
-                                            + result_content[-1500:]
+                                            result_content[:1500] + "\n... (truncated) ...\n" + result_content[-1500:]
                                         )
                                     lines.append(f"[TOOL_RESULT] {result_content.rstrip()}")
                                     lines.append("")

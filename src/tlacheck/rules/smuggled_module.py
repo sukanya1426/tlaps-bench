@@ -108,12 +108,16 @@ def check(ctx: CheckContext) -> list[Issue]:
                 # modularization (and would carry its own obligations).
                 continue
             line = t.loc.line_start if t.loc else "?"
-            issues.append(Issue(
-                vector=name,
-                severity=Severity.CHEATING,
-                message=(f"Agent-created module '{mod_name}' contains admitted "
-                         f"theorem '{t.display_name}' ({kind}) — smuggled axiom."),
-                location=f"{mod_name}.tla:{line}",
-                evidence=f"{mod_name}!{t.display_name}",
-            ))
+            issues.append(
+                Issue(
+                    vector=name,
+                    severity=Severity.CHEATING,
+                    message=(
+                        f"Agent-created module '{mod_name}' contains admitted "
+                        f"theorem '{t.display_name}' ({kind}) — smuggled axiom."
+                    ),
+                    location=f"{mod_name}.tla:{line}",
+                    evidence=f"{mod_name}!{t.display_name}",
+                )
+            )
     return issues

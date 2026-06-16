@@ -56,8 +56,7 @@ def find_tlapm_lib(tlapm_path: str) -> str | None:
     return None
 
 
-def resolve(tlapm: str | None = None,
-            tlapm_lib: str | None = None) -> tuple[str, str]:
+def resolve(tlapm: str | None = None, tlapm_lib: str | None = None) -> tuple[str, str]:
     """Resolve (tlapm_binary, tlapm_lib), raising if either cannot be found."""
     tlapm = tlapm or find_tlapm()
     if not tlapm:

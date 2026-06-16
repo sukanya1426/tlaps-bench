@@ -21,15 +21,15 @@ SANY_RULES = [
     smuggled_module,
     extra_axiom,
     dependency_modified,
-    incomplete_proof,   # bare-QED / missing step inside a structured proof
+    incomplete_proof,  # bare-QED / missing step inside a structured proof
 ]
 
 # tlapm-authoritative fallback — used when Java SANY refused the solution.
 # Covers the soundness vector (admitted / smuggled) from tlapm's own accounting.
 FALLBACK_RULES = [
     admitted_fallback,
-    dependency_modified,   # pure byte-compare, parser-independent
-    incomplete_proof,      # consumes the fallback tlapm --summary accounting
+    dependency_modified,  # pure byte-compare, parser-independent
+    incomplete_proof,  # consumes the fallback tlapm --summary accounting
 ]
 
 
@@ -45,5 +45,4 @@ def run_rules(ctx: CheckContext) -> list[Issue]:
 def evaluate(ctx: CheckContext, *, incomplete_is_cheating: bool = False) -> Result:
     """Run all rules and fold them into a verdict with the tlapm outcome."""
     issues = run_rules(ctx)
-    return decide(ctx.tlapm_passed, issues,
-                  incomplete_is_cheating=incomplete_is_cheating)
+    return decide(ctx.tlapm_passed, issues, incomplete_is_cheating=incomplete_is_cheating)
