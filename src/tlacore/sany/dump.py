@@ -18,7 +18,6 @@ import re
 import shutil
 import subprocess
 import tempfile
-from typing import Optional
 
 from ..model import Module
 
@@ -65,7 +64,7 @@ def dump(tla_path: str, timeout: int = 180) -> Module:
     return Module.parse(dump_raw(tla_path, timeout=timeout))
 
 
-def try_dump(tla_path: str, timeout: int = 180) -> Optional[Module]:
+def try_dump(tla_path: str, timeout: int = 180) -> Module | None:
     """Like :func:`dump` but returns ``None`` on any SANY failure.
 
     Useful when scanning a set of files where some may legitimately fail to
@@ -80,7 +79,7 @@ def try_dump(tla_path: str, timeout: int = 180) -> Optional[Module]:
 _MODULE_DECL = re.compile(r"^-+\s*MODULE\s+(\w+)", re.MULTILINE)
 
 
-def module_name_of(tla_path: str) -> Optional[str]:
+def module_name_of(tla_path: str) -> str | None:
     """Read the declared module name from a .tla file's header."""
     try:
         with open(tla_path, encoding="utf-8", errors="ignore") as f:
@@ -98,8 +97,8 @@ def _as_dep_dirs(dep_dir, dep_dirs) -> list:
     return []
 
 
-def dump_normalized(tla_path: str, dep_dir: Optional[str] = None,
-                    timeout: int = 180, dep_dirs: Optional[list] = None) -> Module:
+def dump_normalized(tla_path: str, dep_dir: str | None = None,
+                    timeout: int = 180, dep_dirs: list | None = None) -> Module:
     """Parse ``tla_path`` robustly: correct filename + supply dependency modules.
 
     Two real-world hurdles this clears:
@@ -137,9 +136,9 @@ def dump_normalized(tla_path: str, dep_dir: Optional[str] = None,
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def try_dump_normalized(tla_path: str, dep_dir: Optional[str] = None,
+def try_dump_normalized(tla_path: str, dep_dir: str | None = None,
                         timeout: int = 180,
-                        dep_dirs: Optional[list] = None) -> Optional[Module]:
+                        dep_dirs: list | None = None) -> Module | None:
     try:
         return dump_normalized(tla_path, dep_dir=dep_dir, timeout=timeout,
                                dep_dirs=dep_dirs)

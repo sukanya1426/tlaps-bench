@@ -28,25 +28,30 @@ Exit codes:
     3 = ERROR (could not run check)
 """
 
+import argparse
+import glob
 import os
-import sys
 import re
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
-import argparse
-import glob
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Also expose the repo `src/` so the SANY gate can `import tlacheck`/`tlacore`
 # when running from source (frozen builds bundle them directly).
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from cheating_detection import (
-    detect_proof_omitted, detect_extra_axioms,
-    detect_preamble_modification, detect_empty_proof,
-    detect_zero_total_obligations, detect_dependency_modification,
-    detect_missing_proof, detect_missing_proofs_summary, strip_comments,
+    detect_dependency_modification,
+    detect_empty_proof,
+    detect_extra_axioms,
+    detect_missing_proof,
+    detect_missing_proofs_summary,
+    detect_preamble_modification,
+    detect_proof_omitted,
+    detect_zero_total_obligations,
+    strip_comments,
 )
 
 
@@ -232,7 +237,7 @@ def check_cheating(filepath, level: int = 1):
         return issues
 
     main_lines = main_content.split('\n')
-    with open(filepath, 'r') as f:
+    with open(filepath) as f:
         current_content = f.read()
     current_lines = current_content.split('\n')
 
@@ -293,7 +298,7 @@ def check_cheating(filepath, level: int = 1):
                     break
             if dep_main is None:
                 continue
-            with open(dep_file, 'r') as f:
+            with open(dep_file) as f:
                 dep_current = f.read()
             dep_files[dep_basename] = (dep_main, dep_current)
 
@@ -527,7 +532,7 @@ def main():
 
     # Check for empty PROOF blocks and 0-obligation (independent of git comparison)
     if tlapm_passed:
-        with open(filepath, 'r') as f:
+        with open(filepath) as f:
             cur_lines = f.read().split('\n')
 
         if args.level == 1:

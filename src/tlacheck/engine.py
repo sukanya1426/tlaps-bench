@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from .context import CheckContext
 from .issue import Issue
-from .verdict import Result, decide
 from .rules import (
-    admitted_statement, smuggled_module, extra_axiom, dependency_modified,
-    admitted_fallback, incomplete_proof,
+    admitted_fallback,
+    admitted_statement,
+    dependency_modified,
+    extra_axiom,
+    incomplete_proof,
+    smuggled_module,
 )
+from .verdict import Result, decide
 
 # SANY-based structural rules — precise, fast, used when Java SANY parsed the
 # solution. Pure functions of the parsed model + provenance.

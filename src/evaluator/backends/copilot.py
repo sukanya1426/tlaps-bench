@@ -5,10 +5,8 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from typing import Optional, Tuple
 
 from .base import AgentBackend
-
 
 DEFAULT_MODEL = "claude-opus-4.8"
 
@@ -16,7 +14,7 @@ DEFAULT_MODEL = "claude-opus-4.8"
 class CopilotBackend(AgentBackend):
     name = "copilot"
 
-    def __init__(self, model: Optional[str] = None):
+    def __init__(self, model: str | None = None):
         self.model = model or DEFAULT_MODEL
 
     def build_command(self, workspace: str, result_dir: str) -> list[str]:
@@ -49,7 +47,7 @@ class CopilotBackend(AgentBackend):
             "--no-auto-update",
         ]
 
-    def check_auth(self) -> Optional[str]:
+    def check_auth(self) -> str | None:
         # Fast path: a token env var is set (headless auth).
         # Checked by the CLI in this order: COPILOT_GITHUB_TOKEN, GH_TOKEN,
         # GITHUB_TOKEN.
@@ -91,7 +89,7 @@ class CopilotBackend(AgentBackend):
             "api.enterprise.githubcopilot.com",  # enterprise
         ]
 
-    def parse_output(self, jsonl_path: str) -> Tuple[str, int, int]:
+    def parse_output(self, jsonl_path: str) -> tuple[str, int, int]:
         lines: list[str] = []
         in_tok = 0
         out_tok = 0
@@ -99,7 +97,7 @@ class CopilotBackend(AgentBackend):
         tool_names: dict[str, str] = {}
 
         try:
-            with open(jsonl_path, "r") as f:
+            with open(jsonl_path) as f:
                 for raw in f:
                     raw = raw.strip()
                     if not raw:

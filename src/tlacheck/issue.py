@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass
-from typing import Optional
 
 
 class Severity(enum.Enum):
@@ -28,8 +27,8 @@ class Issue:
     vector: str                 # short code, e.g. "ADMITTED_STATEMENT"
     severity: Severity
     message: str                # human-readable explanation
-    location: Optional[str] = None   # "file:line" or module name
-    evidence: Optional[str] = None   # the offending snippet / detail
+    location: str | None = None   # "file:line" or module name
+    evidence: str | None = None   # the offending snippet / detail
 
     def __str__(self) -> str:
         loc = f" [{self.location}]" if self.location else ""

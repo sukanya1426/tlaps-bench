@@ -9,11 +9,11 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
-from tlacore.sany.dump import dump
-from tlacore.provenance import Provenance
 from tlacheck.context import CheckContext
-from tlacheck.rules import admitted_statement, smuggled_module, extra_axiom
 from tlacheck.issue import Severity
+from tlacheck.rules import admitted_statement, extra_axiom, smuggled_module
+from tlacore.provenance import Provenance
+from tlacore.sany.dump import dump
 
 
 def _read(p):

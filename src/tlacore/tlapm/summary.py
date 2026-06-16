@@ -14,7 +14,7 @@ import re
 from dataclasses import dataclass, field
 
 from .invoke import run_killgroup
-from .locate import resolve, find_community_lib
+from .locate import find_community_lib, resolve
 
 
 @dataclass

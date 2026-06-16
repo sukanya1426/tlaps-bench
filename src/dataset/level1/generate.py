@@ -11,9 +11,9 @@ generate a standalone .tla file where:
 - Each benchmark file works standalone (with its dependency files)
 """
 
+import glob
 import os
 import re
-import glob
 
 # Modules that tlapm resolves via an -I path, so they should NOT be merged/copied
 # as local dependency modules. Two groups:
@@ -192,7 +192,7 @@ def get_all_instance_deps(mod, files_by_module, visited=None):
     filepath = files_by_module.get(mod)
     if not filepath:
         return visited
-    with open(filepath, 'r') as f:
+    with open(filepath) as f:
         content = f.read()
     available = set(files_by_module.keys())
     # All dependencies of INSTANCE'd modules (both EXTENDS and INSTANCE) need to be copied
@@ -211,7 +211,7 @@ def get_all_file_deps(mod, files_by_module, visited=None):
     filepath = files_by_module.get(mod)
     if not filepath:
         return visited
-    with open(filepath, 'r') as f:
+    with open(filepath) as f:
         content = f.read()
     available = set(files_by_module.keys())
     for dep in get_local_dependencies(content, available):
@@ -226,7 +226,7 @@ def build_dependency_graph(files_by_module):
     available = set(files_by_module.keys())
     graph = {}
     for mod, filepath in files_by_module.items():
-        with open(filepath, 'r') as f:
+        with open(filepath) as f:
             content = f.read()
         graph[mod] = get_local_dependencies(content, available)
     return graph
@@ -386,10 +386,7 @@ def parse_theorems(lines):
         if re.search(r'\bBY\s', first_line) or re.search(r'\bPROOF\s+BY\s', first_line):
             proof_start = i
             has_proof = True
-        elif re.search(r'\bOBVIOUS\s*$', first_line):
-            proof_start = i
-            has_proof = False
-        elif re.search(r'\bOMITTED\s*$', first_line) or re.search(r'\bPROOF\s+OMITTED\s*$', first_line):
+        elif re.search(r'\bOBVIOUS\s*$', first_line) or re.search(r'\bOMITTED\s*$', first_line) or re.search(r'\bPROOF\s+OMITTED\s*$', first_line):
             proof_start = i
             has_proof = False
 
@@ -571,7 +568,7 @@ def merge_files(files_by_module, dep_graph, target_module):
 
     if not all_deps:
         # No local dependencies, just return the file content
-        with open(files_by_module[target_module], 'r') as f:
+        with open(files_by_module[target_module]) as f:
             return f.readlines(), target_module
 
     # Topological order of all deps + target
@@ -583,7 +580,7 @@ def merge_files(files_by_module, dep_graph, target_module):
     merged_body_lines = []
 
     for mod in relevant:
-        with open(files_by_module[mod], 'r') as f:
+        with open(files_by_module[mod]) as f:
             content = f.read()
 
         mod_lines = content.split('\n')
@@ -869,7 +866,7 @@ def process_module_dir(module_dir_name):
     # Build module -> filepath mapping
     files_by_module = {}
     for f in tla_files:
-        with open(f, 'r') as fh:
+        with open(f) as fh:
             content = fh.read()
         mod_name = parse_module_name(content)
         if mod_name:
@@ -883,7 +880,7 @@ def process_module_dir(module_dir_name):
     out_dir = os.path.join(BENCHMARK_DIR, module_dir_name)
 
     for mod_name, filepath in files_by_module.items():
-        with open(filepath, 'r') as f:
+        with open(filepath) as f:
             content = f.read()
 
         raw_lines = content.split('\n')
@@ -903,7 +900,7 @@ def process_module_dir(module_dir_name):
             # Get transitive EXTENDS-only deps
             ed_filepath = files_by_module.get(ed)
             if ed_filepath:
-                with open(ed_filepath, 'r') as f:
+                with open(ed_filepath) as f:
                     ed_content = f.read()
                 all_extends_deps |= get_extends_dependencies(ed_content, available)
 
@@ -918,7 +915,7 @@ def process_module_dir(module_dir_name):
         for ed in all_extends_deps:
             ed_filepath = files_by_module.get(ed)
             if ed_filepath:
-                with open(ed_filepath, 'r') as f:
+                with open(ed_filepath) as f:
                     ed_content = f.read()
                 for _, inst_mod in parse_instances(ed_content):
                     if inst_mod in available and inst_mod not in all_extends_deps:
@@ -943,7 +940,7 @@ def process_module_dir(module_dir_name):
             for ed in all_extends_deps:
                 ed_filepath = files_by_module.get(ed)
                 if ed_filepath:
-                    with open(ed_filepath, 'r') as f:
+                    with open(ed_filepath) as f:
                         ed_content = f.read()
                     extends_graph[ed] = get_extends_dependencies(ed_content, available) & all_extends_deps
             extends_graph[mod_name] = all_extends_deps
@@ -993,7 +990,7 @@ def process_module_dir(module_dir_name):
                     dest = os.path.join(out_dir, os.path.basename(dep_filepath))
                     if not os.path.exists(dest):
                         # Read, strip proofs, write
-                        with open(dep_filepath, 'r') as df:
+                        with open(dep_filepath) as df:
                             dep_content = df.read()
                         dep_lines = dep_content.split('\n')
                         dep_theorems = parse_theorems(dep_lines)
@@ -1022,8 +1019,8 @@ def _load_l2_engine():
     """Load the L2 generator as the shared-model engine. L2 does
     `from generate import ...` expecting THIS module's helpers, so alias us as
     `generate` first."""
-    import sys
     import importlib.util
+    import sys
     sys.modules.setdefault('generate', sys.modules.get('__main__', sys.modules[__name__]))
     path = os.path.join(os.path.dirname(__file__), '..', 'level2', 'generate.py')
     spec = importlib.util.spec_from_file_location('l2_sm_engine', path)
@@ -1099,8 +1096,8 @@ def build_l1_task(sm, source_lines, dump, target_thm, bench_module_name,
 def generate_shared_model_l1(output_root=None):
     """Dump-based L1 generation: one shared `<Module>.tla` per output dir +
     EXTENDS-based L1 tasks. Mirrors the L2 shared-model layout."""
-    import sys
     import shutil
+    import sys
     sm = _load_l2_engine()
     output_root = output_root or BENCHMARK_DIR
 

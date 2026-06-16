@@ -13,34 +13,33 @@ Usage:
     python3 validate_benchmarks.py [--tlapm PATH] [--tlapm-lib PATH] [--timeout SECS] [--jobs N]
 """
 
+import argparse
+import glob
 import os
 import re
-import sys
-import glob
 import shutil
 import subprocess
-import argparse
+import sys
 import tempfile
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Dict
 
 # Internal imports — generate.py is in ../dataset/level1, cheating_detection here.
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 sys.path.insert(0, os.path.join(_HERE, '..', 'dataset', 'level1'))
+from cheating_detection import CheatingIssue
 from generate import (
-    parse_theorems,
-    parse_module_name,
-    find_tla_files,
-    get_theorem_proof_lines,
-    SOURCE_ROOT,
     BENCHMARK_DIR,
     PROJECT_ROOT,
+    SOURCE_ROOT,
     find_source_dirs,
+    find_tla_files,
+    get_theorem_proof_lines,
+    parse_module_name,
+    parse_theorems,
 )
-from cheating_detection import CheatingIssue
 
 
 @dataclass
@@ -59,7 +58,7 @@ class ValidationResult:
     # Proof metrics
     proof_lines_count: int = 0  # non-empty, non-comment proof lines
     # Cheating
-    cheating_issues: List[CheatingIssue] = field(default_factory=list)
+    cheating_issues: list[CheatingIssue] = field(default_factory=list)
     # Error
     error: str = ""
 
@@ -76,7 +75,7 @@ class ValidationResult:
         return "FAIL"
 
 
-def _derive_tlapm_lib(tlapm_path: str) -> Optional[str]:
+def _derive_tlapm_lib(tlapm_path: str) -> str | None:
     """Pick the stdlib dir based on tlapm install layout.
 
     tlapm 1.6 stores .tla files at lib/tlapm/stdlib; tlapm 1.5 at lib/tlaps.
@@ -89,8 +88,8 @@ def _derive_tlapm_lib(tlapm_path: str) -> Optional[str]:
     return None
 
 
-def find_original_proof(source_files_by_module: Dict, theorem_name: str,
-                        source_basename: str) -> Optional[Tuple[str, List[str], int, int]]:
+def find_original_proof(source_files_by_module: dict, theorem_name: str,
+                        source_basename: str) -> tuple[str, list[str], int, int] | None:
     """Find the original proof for a theorem from source files.
 
     Returns (source_file, proof_lines, stmt_start, proof_end) or None.
@@ -101,7 +100,7 @@ def find_original_proof(source_files_by_module: Dict, theorem_name: str,
         if os.path.splitext(os.path.basename(filepath))[0] != source_basename:
             continue
 
-        with open(filepath, 'r') as f:
+        with open(filepath) as f:
             content = f.read()
         lines = content.split('\n')
         theorems = parse_theorems(lines)
@@ -114,7 +113,7 @@ def find_original_proof(source_files_by_module: Dict, theorem_name: str,
     return None
 
 
-def count_proof_lines(proof_lines: List[str]) -> int:
+def count_proof_lines(proof_lines: list[str]) -> int:
     """Count non-empty, non-comment lines in proof."""
     count = 0
     in_comment = False
@@ -149,12 +148,12 @@ def count_proof_lines(proof_lines: List[str]) -> int:
     return count
 
 
-def port_proof_to_benchmark(benchmark_path: str, proof_lines: List[str]) -> str:
+def port_proof_to_benchmark(benchmark_path: str, proof_lines: list[str]) -> str:
     """Replace PROOF OBVIOUS in the benchmark file with the original proof.
 
     Returns the new content.
     """
-    with open(benchmark_path, 'r') as f:
+    with open(benchmark_path) as f:
         content = f.read()
 
     lines = content.split('\n')
@@ -176,7 +175,7 @@ def port_proof_to_benchmark(benchmark_path: str, proof_lines: List[str]) -> str:
 
 
 def run_tlapm(tla_file: str, tlapm_path: str, tlapm_lib: str,
-              timeout: int = 120) -> Tuple[int, str, float]:
+              timeout: int = 120) -> tuple[int, str, float]:
     """Run tlapm on a TLA+ file. Returns (exit_code, output, elapsed_secs)."""
     cmd = [tlapm_path, "-I", tlapm_lib]
     community_lib = os.path.join(PROJECT_ROOT, "lib", "community")
@@ -219,7 +218,7 @@ def validate_single_benchmark(args_tuple):
     )
 
     # Try to find the theorem by parsing the benchmark file itself
-    with open(benchmark_path, 'r') as f:
+    with open(benchmark_path) as f:
         benchmark_content = f.read()
 
     bench_lines = benchmark_content.split('\n')
@@ -261,7 +260,7 @@ def validate_single_benchmark(args_tuple):
             candidates.append((source_basename, src_file))
 
     for source_basename, src_file in candidates:
-        with open(src_file, 'r') as f:
+        with open(src_file) as f:
             src_content = f.read()
         src_lines = src_content.split('\n')
         src_theorems = parse_theorems(src_lines)
@@ -327,7 +326,7 @@ def validate_single_benchmark(args_tuple):
     return result
 
 
-def generate_report(results: List[ValidationResult], output_path: str):
+def generate_report(results: list[ValidationResult], output_path: str):
     """Generate a markdown report of validation results."""
     total = len(results)
     passed = sum(1 for r in results if r.status == "PASS")
@@ -472,7 +471,7 @@ def main():
     for mod_dir in find_source_dirs():
         module_path = os.path.join(SOURCE_ROOT, mod_dir)
         for f in find_tla_files(module_path):
-            with open(f, 'r') as fh:
+            with open(f) as fh:
                 content = fh.read()
             mod_name = parse_module_name(content)
             if mod_name:

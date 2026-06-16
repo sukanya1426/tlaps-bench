@@ -11,11 +11,10 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 from tlacore.model import Module
 from tlacore.provenance import Provenance, classify
-from tlacore.sany.dump import try_dump, try_dump_normalized
+from tlacore.sany.dump import try_dump_normalized
 from tlacore.source import slice_loc
 from tlacore.tlapm.summary import Summary, run_summary
 
@@ -30,10 +29,10 @@ def _norm(text: str) -> str:
 class CheckContext:
     target_name: str                       # benchmark module name
     solution_dir: str                      # result dir holding the submission
-    solution: Optional[Module]             # parsed solution module (None if SANY failed)
-    baseline: Optional[Module]             # parsed benchmark.tla (given baseline)
+    solution: Module | None             # parsed solution module (None if SANY failed)
+    baseline: Module | None             # parsed benchmark.tla (given baseline)
     provenance: Provenance
-    benchmark_dir: Optional[str] = None    # canonical benchmark/<level>/<module>/
+    benchmark_dir: str | None = None    # canonical benchmark/<level>/<module>/
     solution_source: str = ""              # raw text of the solution file
     baseline_source: str = ""              # raw text of benchmark.tla
     sany_ok: bool = True                   # did Java SANY parse the solution?
@@ -42,7 +41,7 @@ class CheckContext:
     # Java SANY (stricter) refuses. Keyed: "" = solution, mod name = agent module.
     summaries: dict = field(default_factory=dict)
     agent_modules: dict[str, Module] = field(default_factory=dict)  # name -> parsed
-    summary: Optional[Summary] = None
+    summary: Summary | None = None
     tlapm_output: str = ""
     tlapm_passed: bool = False
 
@@ -95,7 +94,7 @@ class CheckContext:
 
 def build_context(solution_dir: str, target_name: str, *,
                   benchmark_dir: str | None = None,
-                  summary: Optional[Summary] = None,
+                  summary: Summary | None = None,
                   tlapm_output: str = "", tlapm_passed: bool = False,
                   solution_file: str | None = None,
                   tlapm_fallback: bool = False,

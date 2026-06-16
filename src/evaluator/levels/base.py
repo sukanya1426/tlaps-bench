@@ -17,8 +17,6 @@ import glob
 import os
 import re
 from abc import ABC
-from typing import Optional
-
 
 # A top-level proof goal — `THEOREM`/`LEMMA`/`COROLLARY`/`PROPOSITION` at the
 # start of a logical line (optionally named). This is what makes a file a
@@ -68,13 +66,13 @@ class Level(ABC):
         if '_' not in name:
             return False
         try:
-            with open(path, 'r') as f:
+            with open(path) as f:
                 text = f.read()
         except OSError:
             return False
         return _TOP_LEVEL_GOAL.search(text) is not None
 
-    def get_benchmark_files(self, filter_pattern: Optional[str] = None) -> list[str]:
+    def get_benchmark_files(self, filter_pattern: str | None = None) -> list[str]:
         files = sorted(
             glob.glob(os.path.join(self.benchmark_dir(), '**', '*.tla'), recursive=True)
         )
@@ -102,7 +100,7 @@ class Level(ABC):
         return os.path.join(prompts_dir, f'{self.name}.txt')
 
     def build_prompt(self, benchmark_basename: str, tlapm_path: str, tlapm_lib: str) -> str:
-        with open(self.prompt_template_path(), 'r') as f:
+        with open(self.prompt_template_path()) as f:
             template = f.read()
         return template.format(
             benchmark_basename=benchmark_basename,

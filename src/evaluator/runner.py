@@ -14,22 +14,21 @@ Usage:
                       [--timeout SECS] [--check-timeout SECS] [--output-dir DIR]
 """
 
-import os
-import sys
-import re
+import argparse
 import glob
 import json
+import os
+import re
 import shlex
 import shutil
 import signal
 import subprocess
-import argparse
+import sys
 import tempfile
-import time
 import threading
+import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Optional
 
 # Allow `python3 src/evaluator/runner.py` as well as module import.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -70,7 +69,7 @@ def ensure_tlapm():
     print("Done.")
 
 
-def find_tlapm_lib(tlapm_path: str) -> Optional[str]:
+def find_tlapm_lib(tlapm_path: str) -> str | None:
     """Derive lib path from tlapm binary path. Supports 1.5 and 1.6 layouts."""
     base = os.path.dirname(os.path.dirname(tlapm_path))
     for sub in ['lib/tlapm/stdlib', 'lib/tlaps', 'lib/tlapm', 'lib']:
@@ -80,7 +79,7 @@ def find_tlapm_lib(tlapm_path: str) -> Optional[str]:
     return None
 
 
-def fetch_usage(usage_script: str) -> Optional[dict]:
+def fetch_usage(usage_script: str) -> dict | None:
     """Return the parsed OAuth usage JSON, or None if unavailable.
 
     Fails open (returns None) on any error — missing script, API-key-only auth
@@ -251,7 +250,7 @@ def kill_agent_tree(proc, workspace: str):
             pass
 
 
-def _mem_available_gb() -> Optional[float]:
+def _mem_available_gb() -> float | None:
     """MemAvailable in GiB from /proc/meminfo, or None if unreadable."""
     try:
         with open('/proc/meminfo') as f:
@@ -303,7 +302,7 @@ class WorkItem:
     tlapm_path: str
     tlapm_lib: str
     # Quota gate (Claude Max subscription). usage_script=None disables it.
-    usage_script: Optional[str] = None
+    usage_script: str | None = None
     quota_5h: float = 0
     quota_7d: float = 0
     quota_max_waits: int = 0
@@ -646,7 +645,7 @@ def main():
     benchmark_root, checker_binary = resolve_paths()
     if not os.path.isfile(checker_binary):
         print(f"ERROR: checker binary not found at {checker_binary}")
-        print(f"       run `make` at the repo root to build it.")
+        print("       run `make` at the repo root to build it.")
         sys.exit(1)
     level = get_level(args.level, benchmark_root, checker_binary)
 
@@ -681,8 +680,8 @@ def main():
                 print(f"Quota:   gate ON — now 5h={u5}% (limit {args.quota_5h}%), "
                       f"7d={u7}% (limit {args.quota_7d}%), max-waits={args.quota_max_waits}")
             else:
-                print(f"Quota:   gate OFF — usage endpoint unavailable "
-                      f"(API-key auth or no OAuth token at ~/.claude/.credentials.json)")
+                print("Quota:   gate OFF — usage endpoint unavailable "
+                      "(API-key auth or no OAuth token at ~/.claude/.credentials.json)")
         elif args.usage_script:
             print(f"Quota:   gate OFF — usage script not found at {candidate}")
 

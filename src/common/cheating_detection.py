@@ -7,14 +7,13 @@ Used by both check_proof.py (AI agent feedback) and validate_benchmarks.py (batc
 
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 
 @dataclass
 class CheatingIssue:
     kind: str          # e.g. "PROOF_OMITTED", "EXTRA_AXIOM", "STATEMENT_MODIFIED"
     description: str
-    line: Optional[int] = None
+    line: int | None = None
 
 
 def strip_comments(text: str) -> str:
@@ -24,7 +23,7 @@ def strip_comments(text: str) -> str:
     return text
 
 
-def detect_proof_omitted(proof_text: str) -> List[CheatingIssue]:
+def detect_proof_omitted(proof_text: str) -> list[CheatingIssue]:
     """Check for PROOF OMITTED or bare OMITTED in proof text."""
     issues = []
     if re.search(r'\bPROOF\s+OMITTED\b', proof_text):
@@ -44,7 +43,7 @@ def detect_proof_omitted(proof_text: str) -> List[CheatingIssue]:
     return issues
 
 
-def detect_extra_axioms(original_content: str, current_content: str) -> List[CheatingIssue]:
+def detect_extra_axioms(original_content: str, current_content: str) -> list[CheatingIssue]:
     """Check if new AXIOM/ASSUME/ASSUMPTION declarations were added."""
     issues = []
     orig_axioms = set(re.findall(r'^(AXIOM|ASSUME|ASSUMPTION)\b.*', original_content, re.MULTILINE))
@@ -59,8 +58,8 @@ def detect_extra_axioms(original_content: str, current_content: str) -> List[Che
     return issues
 
 
-def detect_preamble_modification(original_lines: List[str], current_lines: List[str],
-                                  proof_obvious_line: int) -> List[CheatingIssue]:
+def detect_preamble_modification(original_lines: list[str], current_lines: list[str],
+                                  proof_obvious_line: int) -> list[CheatingIssue]:
     """Check that everything before PROOF OBVIOUS is unchanged."""
     issues = []
     for i in range(proof_obvious_line):
@@ -79,7 +78,7 @@ def detect_preamble_modification(original_lines: List[str], current_lines: List[
     return issues
 
 
-def detect_zero_total_obligations(tlapm_output: str) -> List[CheatingIssue]:
+def detect_zero_total_obligations(tlapm_output: str) -> list[CheatingIssue]:
     """Check if tlapm passed with 0 total obligations — nothing was actually proved."""
     issues = []
     # Find the LAST obligation count (the target file's, not TLAPS.tla's)
@@ -92,7 +91,7 @@ def detect_zero_total_obligations(tlapm_output: str) -> List[CheatingIssue]:
     return issues
 
 
-def detect_empty_proof(proof_text_clean: str) -> List[CheatingIssue]:
+def detect_empty_proof(proof_text_clean: str) -> list[CheatingIssue]:
     """Check for empty PROOF blocks: 'PROOF' followed by nothing before
     module end (====) or end of file.
 
@@ -128,7 +127,7 @@ def detect_empty_proof(proof_text_clean: str) -> List[CheatingIssue]:
 
 
 def detect_statement_modification(original_content: str, current_content: str,
-                                   parse_theorems_fn) -> List[CheatingIssue]:
+                                   parse_theorems_fn) -> list[CheatingIssue]:
     """Check if the target theorem statement was modified."""
     issues = []
 
@@ -150,8 +149,8 @@ def detect_statement_modification(original_content: str, current_content: str,
     return issues
 
 
-def detect_missing_proof(original_lines: List[str], current_lines: List[str],
-                         proof_obvious_line: int) -> List[CheatingIssue]:
+def detect_missing_proof(original_lines: list[str], current_lines: list[str],
+                         proof_obvious_line: int) -> list[CheatingIssue]:
     """Check that the target theorem still has a PROOF block in the current file.
 
     Catches the cheat where PROOF OBVIOUS is simply deleted (leaving a bare
@@ -194,7 +193,7 @@ def detect_missing_proof(original_lines: List[str], current_lines: List[str],
 
 
 def detect_missing_proofs_summary(summary_output: str,
-                                   target_theorem_line: Optional[int] = None) -> List[CheatingIssue]:
+                                   target_theorem_line: int | None = None) -> list[CheatingIssue]:
     """Check tlapm --summary output for missing proofs in the target theorem.
 
     tlapm treats a bare QED (without BY/OBVIOUS) as an implicit omission,
@@ -240,7 +239,7 @@ def detect_missing_proofs_summary(summary_output: str,
     return issues
 
 
-def detect_dependency_modification(dep_files: Dict[str, Tuple[str, str]]) -> List[CheatingIssue]:
+def detect_dependency_modification(dep_files: dict[str, tuple[str, str]]) -> list[CheatingIssue]:
     """Check if dependency .tla files were modified.
 
     Args:
@@ -259,7 +258,7 @@ def detect_dependency_modification(dep_files: Dict[str, Tuple[str, str]]) -> Lis
 def detect_cheating_full(proof_text: str, original_content: str, current_content: str,
                          tlapm_output: str = "", tlapm_passed: bool = False,
                          parse_theorems_fn=None,
-                         dep_files: Optional[Dict[str, Tuple[str, str]]] = None) -> List[CheatingIssue]:
+                         dep_files: dict[str, tuple[str, str]] | None = None) -> list[CheatingIssue]:
     """Run all cheating checks. This is the main entry point.
 
     Args:

@@ -86,7 +86,11 @@ SANY_DUMP = os.path.join(PROJECT_ROOT, 'src', 'dataset', 'sany-dump', 'run.sh')
 # Reuse L1's proof-stripping logic for dependency .tla copies.
 sys.path.insert(0, os.path.join(PROJECT_ROOT, 'src', 'dataset', 'level1'))
 from generate import (  # noqa: E402
-    parse_theorems, strip_all_proofs, parse_extends, parse_instances, STDLIB_MODULES,
+    STDLIB_MODULES,
+    parse_extends,
+    parse_instances,
+    parse_theorems,
+    strip_all_proofs,
 )
 
 KEYWORD_PATTERN = re.compile(r'^\s*(THEOREM|LEMMA|AXIOM|COROLLARY|PROPOSITION)\b')

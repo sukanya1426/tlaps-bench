@@ -17,6 +17,7 @@ import os
 import re
 
 from tlacore.source import slice_loc
+
 from ..context import CheckContext
 from ..issue import Issue, Severity
 
