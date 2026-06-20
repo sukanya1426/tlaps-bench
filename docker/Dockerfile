@@ -19,14 +19,19 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 # Install agent CLIs (codex for OpenAI, claude code for Anthropic, copilot for GitHub)
 RUN npm install -g @openai/codex @anthropic-ai/claude-code @github/copilot && npm cache clean --force
 
-# Install tlapm 1.6 pre-release (rolling, last refreshed upstream 2026-04-14).
+# Install tlapm 1.6 pre-release. 1.6.0-pre is a *rolling* tag (the asset is
+# rebuilt in place), so we assert the expected commit after download: 80172c6 is
+# the first rolling build carrying `--strict` (tlaplus/tlapm#278). Keep this pin
+# in sync with TLAPM_COMMIT in scripts/install_deps.sh; bump deliberately.
 # Tarball top-level dir is `tlapm/`, so extracting into /opt/ produces /opt/tlapm/.
 # Drop tlapm_lsp (~40MB language server) — not needed for batch verification.
 RUN curl -fsSL -o /tmp/tlapm.tar.gz \
     https://github.com/tlaplus/tlapm/releases/download/1.6.0-pre/tlapm-1.6.0-pre-x86_64-linux-gnu.tar.gz \
     && tar -xzf /tmp/tlapm.tar.gz -C /opt/ \
     && rm /tmp/tlapm.tar.gz \
-    && rm -f /opt/tlapm/bin/tlapm_lsp
+    && rm -f /opt/tlapm/bin/tlapm_lsp \
+    && { /opt/tlapm/bin/tlapm --version | grep -q 80172c6 \
+         || { echo "ERROR: tlapm rolling asset moved off commit 80172c6; bump the pin" >&2; exit 1; }; }
 
 # Vendor CommunityModules into tlapm's stdlib dir so that benchmarks which
 # EXTEND SequencesExt / BagsExt / SequencesExtTheorems / ... resolve via

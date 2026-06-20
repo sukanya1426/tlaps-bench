@@ -10,7 +10,12 @@
 set -euo pipefail
 
 # Pinned versions — bump deliberately, then re-run.
+# 1.6.0-pre is a *rolling* tag (the asset is rebuilt in place), so the tag alone
+# is not reproducible — pin by the expected `tlapm --version` commit and
+# re-download on mismatch. 80172c6 is the first rolling build carrying `--strict`
+# (tlaplus/tlapm#278); bump TLAPM_COMMIT deliberately when upgrading.
 TLAPM_TAG="1.6.0-pre"
+TLAPM_COMMIT="80172c6"
 TLAPM_ASSET="tlapm-${TLAPM_TAG}-x86_64-linux-gnu.tar.gz"
 TLAPM_URL="https://github.com/tlaplus/tlapm/releases/download/${TLAPM_TAG}/${TLAPM_ASSET}"
 
@@ -29,15 +34,24 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LIB_DIR="${REPO_ROOT}/lib"
 
 # --- tlapm ---
-if [[ -x "${HOME}/.tlapm/bin/tlapm" ]]; then
-  echo "[install_deps] tlapm already at ~/.tlapm — skipping"
+# Pin by commit, not mere presence: the rolling tag means an existing ~/.tlapm
+# may be an older build (e.g. one without --strict), so re-install on mismatch.
+if [[ -x "${HOME}/.tlapm/bin/tlapm" ]] \
+   && "${HOME}/.tlapm/bin/tlapm" --version 2>/dev/null | grep -q "${TLAPM_COMMIT}"; then
+  echo "[install_deps] tlapm ${TLAPM_COMMIT} already at ~/.tlapm — skipping"
 else
-  echo "[install_deps] downloading tlapm ${TLAPM_TAG}..."
+  echo "[install_deps] installing tlapm ${TLAPM_TAG} (${TLAPM_COMMIT})..."
   curl -fsSL -o "/tmp/${TLAPM_ASSET}" "${TLAPM_URL}"
+  rm -rf "${HOME}/.tlapm" "${HOME}/tlapm"
   tar -xzf "/tmp/${TLAPM_ASSET}" -C "${HOME}/" # extracts to ~/tlapm/
   mv "${HOME}/tlapm" "${HOME}/.tlapm"
   rm -f "/tmp/${TLAPM_ASSET}"
   rm -f "${HOME}/.tlapm/bin/tlapm_lsp" 2>/dev/null || true
+  installed="$("${HOME}/.tlapm/bin/tlapm" --version 2>/dev/null | head -1 || true)"
+  if ! echo "${installed}" | grep -q "${TLAPM_COMMIT}"; then
+    echo "[install_deps] WARNING: tlapm version '${installed}' != expected ${TLAPM_COMMIT};" >&2
+    echo "[install_deps]          the rolling 1.6.0-pre asset has moved — bump TLAPM_COMMIT." >&2
+  fi
 fi
 
 # --- Apalache ---
