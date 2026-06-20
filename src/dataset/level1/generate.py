@@ -1163,6 +1163,17 @@ def generate_shared_model_l1(output_root=None):
     return total
 
 
+def _run_sany_gate(directory):
+    """Post-generation input SANY gate over the emitted L1 benchmark dir.
+
+    Every task file handed to an agent must parse under standalone tla2sany.
+    Flags failures (manifest + stdout); does not drop them.
+    """
+    from dataset.sany_audit import gate
+
+    gate(directory, label="sany-gate-l1")
+
+
 def main():
     import argparse
 
@@ -1178,6 +1189,7 @@ def main():
 
     if args.shared_model:
         generate_shared_model_l1(output_root=args.output_dir)
+        _run_sany_gate(args.output_dir or BENCHMARK_DIR)
         return
 
     # Clean benchmark dir
@@ -1198,6 +1210,7 @@ def main():
             print(f"  -> {count} benchmarks")
 
     print(f"\nTotal benchmarks generated: {total}")
+    _run_sany_gate(BENCHMARK_DIR)
 
 
 if __name__ == "__main__":

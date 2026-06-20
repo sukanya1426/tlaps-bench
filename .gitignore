@@ -281,6 +281,7 @@ results_codex_intermediate/
 CLAUDE.md
 lib/
 benchmark/level2/audit.log
+sany_flagged.json
 logs/
 tmp/
 
