@@ -174,7 +174,10 @@ def port_proof_to_benchmark(benchmark_path: str, proof_lines: list[str]) -> str:
 
 def run_tlapm(tla_file: str, tlapm_path: str, tlapm_lib: str, timeout: int = 120) -> tuple[int, str, float]:
     """Run tlapm on a TLA+ file. Returns (exit_code, output, elapsed_secs)."""
-    cmd = [tlapm_path, "-I", tlapm_lib]
+    # --strict so an *incomplete* reference proof (a missing / OMITTED / bare-QED
+    # step generates no obligation) is reported as not-verified instead of a
+    # spurious success — keeps the validation report honest (tlaplus/tlapm#271).
+    cmd = [tlapm_path, "--strict", "-I", tlapm_lib]
     community_lib = os.path.join(PROJECT_ROOT, "lib", "community")
     if os.path.isdir(community_lib):
         cmd += ["-I", community_lib]
@@ -381,7 +384,9 @@ def generate_report(results: list[ValidationResult], output_path: str):
             elif r.status == "FAIL":
                 # Extract failure summary from tlapm output
                 fail_match = re.search(r"(\d+)/(\d+) obligation", r.tlapm_output)
-                if fail_match:
+                if r.tlapm_exit_code == 11 or "Proof incomplete" in r.tlapm_output:
+                    notes = "incomplete proof (missing/omitted step; --strict)"
+                elif fail_match:
                     notes = f"{fail_match.group(1)}/{fail_match.group(2)} obligations failed"
                 elif "TIMEOUT" in r.tlapm_output:
                     notes = "Timeout"
