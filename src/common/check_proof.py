@@ -455,6 +455,28 @@ def check_sany_valid(filepath):
         return "unavailable", f"{type(e).__name__}: {e}"
 
 
+def parse_strict_status(tlapm_exit, tlapm_output):
+    """Interpret a ``tlapm --strict`` run. Returns ``(complete, n_missing, obligation_failed)``.
+
+    ``--strict`` reports incompleteness MODULE-WIDE as "N missing, M omitted".
+    Only MISSING steps (no proof at all — a bare QED, an unproven helper lemma,
+    an unfinished target) are an agent gap. OMITTED steps are the benchmark's
+    GIVEN admitted lemmas (L1 preceding ``PROOF OMITTED``) and must NOT by
+    themselves fail a valid solution — agent-ADDED omitted is caught separately
+    by the proof-omitted check.
+
+    So a run is ``complete`` (target genuinely proved) iff every obligation was
+    discharged and zero steps are missing — i.e. exit 0 (fully clean) or exit 11
+    whose only gaps are omitted given lemmas. exit 10 / failed obligations /
+    timeout (negative exit) are never complete.
+    """
+    m_missing = re.search(r"Proof incomplete in module .*?:\s*(\d+) missing", tlapm_output)
+    n_missing = int(m_missing.group(1)) if m_missing else 0
+    obligation_failed = "obligations failed" in tlapm_output or tlapm_exit == 10
+    complete = tlapm_exit in (0, 11) and n_missing == 0 and not obligation_failed
+    return complete, n_missing, obligation_failed
+
+
 def main():
     parser = argparse.ArgumentParser(description="Check a single TLAPS benchmark proof")
     parser.add_argument("file", help="Path to the benchmark .tla file")
@@ -572,18 +594,10 @@ def main():
 
         for line in tlapm_output.split("\n"):
             emit(line)
-        # --strict reports incompleteness module-wide as "N missing, M omitted".
-        # Only MISSING steps (no proof at all — a bare QED, an unproven helper
-        # lemma, an unfinished target) signal an agent gap. OMITTED steps are the
-        # benchmark's GIVEN admitted lemmas (L1 preceding `PROOF OMITTED`) and
-        # must NOT by themselves fail a valid solution — agent-ADDED omitted is
-        # caught separately by the proof-omitted check. So exit 0 (fully clean) or
-        # exit 11 with 0 missing (only given omitted lemmas remain) both mean the
-        # target is genuinely proved; exit 10 / failed obligations / timeout do not.
-        m_missing = re.search(r"Proof incomplete in module .*?:\s*(\d+) missing", tlapm_output)
-        n_missing = int(m_missing.group(1)) if m_missing else 0
-        obligation_failed = "obligations failed" in tlapm_output or tlapm_exit == 10
-        tlapm_passed = tlapm_exit in (0, 11) and n_missing == 0 and not obligation_failed
+        # Interpret --strict: a valid solution is "complete" (all obligations
+        # discharged, no MISSING step); the benchmark's GIVEN omitted lemmas do
+        # not count against it. See parse_strict_status for the full rationale.
+        tlapm_passed, n_missing, obligation_failed = parse_strict_status(tlapm_exit, tlapm_output)
 
         # Run --summary to detect missing proofs (e.g. bare QED)
         summary_output = ""
