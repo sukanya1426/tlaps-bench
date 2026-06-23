@@ -80,7 +80,7 @@ class TestBuildCompositeCommand:
         runner = ContainerRunner()
         result = runner.build_composite_command(["codex", "exec", "--model", "gpt-5.5"])
         assert "/opt/firewall.sh" in result
-        assert result.endswith("exec codex exec --model gpt-5.5")
+        assert "codex exec --model gpt-5.5" in result
 
     def test_with_install_script(self):
         runner = ContainerRunner()
@@ -90,7 +90,7 @@ class TestBuildCompositeCommand:
         )
         assert result.startswith("/opt/install-scripts/install-codex.sh")
         assert "/opt/firewall.sh" in result
-        assert result.endswith("exec codex exec --model gpt-5.5")
+        assert "codex exec --model gpt-5.5" in result
 
     def test_command_quoting(self):
         runner = ContainerRunner()

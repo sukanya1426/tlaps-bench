@@ -17,22 +17,36 @@ class ClaudeCodeBackend(AgentBackend):
     install_script = "install-claudecode.sh"
     env_keys = ["ANTHROPIC_API_KEY"]
 
+    # Tools the agent is allowed to use (mirrors SREGym's whitelist).
+    # Using --allowedTools instead of --dangerously-skip-permissions
+    # because the latter is blocked when running as root in containers.
+    ALLOWED_TOOLS = [
+        "Bash",
+        "Edit",
+        "Write",
+        "Read",
+        "Glob",
+        "Grep",
+        "LS",
+        "WebFetch",
+        "NotebookEdit",
+        "NotebookRead",
+        "TodoRead",
+        "TodoWrite",
+        "Agent",
+        "Skill",
+        "SlashCommand",
+        "Task",
+        "WebSearch",
+    ]
+
     def __init__(self, model: str | None = None):
         self.model = model or DEFAULT_MODEL
 
     def build_command(self, workspace: str, result_dir: str) -> list[str]:
-        # claude has no -C / --cwd flag; runner sets cwd=workspace.
-        # stream-json requires --verbose in non-interactive (--print) mode.
-        # --no-session-persistence keeps benchmark runs out of the user's
-        # /resume history (193 entries per full run otherwise).
-        # --effort max runs the highest reasoning budget (levels:
-        # low|medium|high|xhigh|max) so the comparison against Codex's
-        # xhigh reasoning is apples-to-apples; without it the CLI uses a
-        # lighter default.
         return [
             "claude",
             "--print",
-            "--dangerously-skip-permissions",
             "--no-session-persistence",
             "--output-format",
             "stream-json",
@@ -41,7 +55,8 @@ class ClaudeCodeBackend(AgentBackend):
             "max",
             "--model",
             self.model,
-        ]
+            "--allowedTools",
+        ] + self.ALLOWED_TOOLS
 
     def check_auth(self) -> str | None:
         # Fast path: env var present.
