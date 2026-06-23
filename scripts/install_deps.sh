@@ -47,10 +47,15 @@ else
   mv "${HOME}/tlapm" "${HOME}/.tlapm"
   rm -f "/tmp/${TLAPM_ASSET}"
   rm -f "${HOME}/.tlapm/bin/tlapm_lsp" 2>/dev/null || true
+  # Version check is best-effort: tlapm may not run on this host (glibc mismatch)
+  # but still works inside the Docker container. Don't fail setup over it.
   installed="$("${HOME}/.tlapm/bin/tlapm" --version 2>/dev/null | head -1 || true)"
-  if ! echo "${installed}" | grep -q "${TLAPM_COMMIT}"; then
+  if [[ -n "${installed}" ]] && ! echo "${installed}" | grep -q "${TLAPM_COMMIT}"; then
     echo "[install_deps] WARNING: tlapm version '${installed}' != expected ${TLAPM_COMMIT};" >&2
     echo "[install_deps]          the rolling 1.6.0-pre asset has moved — bump TLAPM_COMMIT." >&2
+  elif [[ -z "${installed}" ]]; then
+    echo "[install_deps] NOTE: tlapm binary downloaded but cannot execute on this host"
+    echo "[install_deps]       (likely glibc mismatch). It will work inside the Docker container."
   fi
 fi
 
@@ -91,6 +96,6 @@ fi
 echo "[install_deps] done."
 echo
 echo "Versions:"
-"${HOME}/.tlapm/bin/tlapm" --version | sed 's/^/  tlapm:    /'
+"${HOME}/.tlapm/bin/tlapm" --version 2>/dev/null | sed 's/^/  tlapm:    /' || echo "  tlapm:    (cannot execute on this host)"
 "${HOME}/.apalache/bin/apalache-mc" 2>&1 | grep -i version | head -1 | sed 's/^/  apalache: /' || true
 java -cp "${LIB_DIR}/tla2tools.jar" tla2sany.SANY 2>&1 | head -1 | sed 's/^/  sany:     /' || true
