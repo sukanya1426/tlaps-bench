@@ -154,11 +154,14 @@ class ContainerRunner:
         return args, cid_file
 
     def build_composite_command(self, cmd: list[str], install_script: str | None = None) -> str:
-        """Build shell command: optional install script + agent command."""
+        """Build shell command: install script → firewall → agent command."""
         agent_cmd = " ".join(shlex.quote(c) for c in cmd)
+        parts = []
         if install_script:
-            return f"/opt/install-scripts/{install_script} && exec {agent_cmd}"
-        return f"exec {agent_cmd}"
+            parts.append(f"/opt/install-scripts/{install_script} >&2")
+        parts.append("/opt/firewall.sh >&2 || true")
+        parts.append(f"exec {agent_cmd}")
+        return " && ".join(parts)
 
     def run(self, config: ContainerConfig, cmd: list[str], stdin_data: str | None = None) -> ContainerRun:
         """Launch a container with the given command. Returns handle."""
