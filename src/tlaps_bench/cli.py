@@ -106,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write("tlaps-bench score: not implemented yet (tracked as a separate task)\n")
         return 1
     if sub == "setup":
-        ensure_build_deps()
+        ensure_build_deps(is_docker=True)
         print("Setup complete.")
         return 0
 
