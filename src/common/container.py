@@ -5,7 +5,9 @@ from __future__ import annotations
 import contextlib
 import os
 import shlex
+import shutil
 import subprocess
+import tempfile
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -133,18 +135,23 @@ class ContainerRunner:
 
         # tlapm is baked into the image at /opt/tlapm
 
-        # Credential directory mounts (read-only except codex which needs write for cache)
-        aws_dir = Path.home() / ".aws"
-        if aws_dir.is_dir():
-            args.extend(["-v", f"{aws_dir.resolve()}:/root/.aws:ro"])
+        # Credential directory mounts. Copy to throwaway tempdirs so agent
+        # cannot modify host credentials. Cleaned up after run.
+        self._credential_tmps: list[str] = []
 
-        codex_dir = Path.home() / ".codex"
-        if codex_dir.is_dir():
-            args.extend(["-v", f"{codex_dir.resolve()}:/root/.codex"])
-
-        copilot_dir = Path.home() / ".copilot"
-        if copilot_dir.is_dir():
-            args.extend(["-v", f"{copilot_dir.resolve()}:/root/.copilot"])
+        for name, mount_path in [("aws", "/root/.aws"), ("codex", "/root/.codex"), ("copilot", "/root/.copilot")]:
+            src = Path.home() / f".{name}"
+            if src.is_dir():
+                tmp = tempfile.mkdtemp(prefix=f"tlaps-bench-{name}-")
+                shutil.copytree(
+                    src,
+                    tmp,
+                    dirs_exist_ok=True,
+                    ignore_dangling_symlinks=True,
+                    copy_function=lambda s, d: shutil.copy2(s, d) if os.access(s, os.R_OK) else None,
+                )
+                self._credential_tmps.append(tmp)
+                args.extend(["-v", f"{tmp}:{mount_path}:rw"])
 
         # Env vars
         for key, value in config.env.items():
@@ -241,6 +248,12 @@ class ContainerRunner:
             self.kill(run)
             run.proc.wait(timeout=10)
             raise
+
+    def cleanup_credential_tmps(self) -> None:
+        """Remove throwaway credential directories."""
+        for tmp in getattr(self, "_credential_tmps", []):
+            shutil.rmtree(tmp, ignore_errors=True)
+        self._credential_tmps = []
 
     @staticmethod
     def _read_cidfile(cid_file: str, retries: int = 10) -> str:

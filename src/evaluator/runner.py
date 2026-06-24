@@ -15,6 +15,7 @@ Usage:
 
 import argparse
 import contextlib
+import fcntl
 import json
 import os
 import re
@@ -534,12 +535,27 @@ def _run_agent_container(
         proc = container_run.proc
         assert proc.stdout is not None  # Popen created with stdout=PIPE
 
+        # Make stderr non-blocking to prevent pipe deadlock (>64KB stderr blocks agent)
+        if proc.stderr:
+            flags = fcntl.fcntl(proc.stderr, fcntl.F_GETFL)
+            fcntl.fcntl(proc.stderr, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+
+        stderr_chunks: list[str] = []
+
         # Stream stdout to file in real-time (and stderr separately)
         with open(agent_jsonl, "w") as jsonl_f:
             deadline = (time.time() + timeout) if timeout else None
             while True:
                 # Poll with 5s timeout so deadline is checked even if agent hangs
                 ready, _, _ = select.select([proc.stdout], [], [], 5.0)
+                # Drain stderr opportunistically
+                if proc.stderr:
+                    try:
+                        chunk = proc.stderr.read()
+                        if chunk:
+                            stderr_chunks.append(chunk)
+                    except (OSError, BlockingIOError):
+                        pass
                 if ready:
                     line = proc.stdout.readline()
                     if not line and proc.poll() is not None:
@@ -559,8 +575,15 @@ def _run_agent_container(
                     return
 
         result["agent_exit"] = proc.returncode
-        # Capture any remaining stderr
-        stderr = proc.stderr.read() if proc.stderr else ""
+        # Drain any remaining stderr
+        if proc.stderr:
+            try:
+                remaining = proc.stderr.read()
+                if remaining:
+                    stderr_chunks.append(remaining)
+            except (OSError, BlockingIOError):
+                pass
+        stderr = "".join(stderr_chunks)
         if stderr:
             with open(os.path.join(agent_dir, "stderr.txt"), "w") as f:
                 f.write(stderr)
@@ -571,6 +594,8 @@ def _run_agent_container(
         result["error"] = str(e)
         if container_run:
             runner.kill(container_run)
+    finally:
+        runner.cleanup_credential_tmps()
 
 
 def _run_agent_local(
@@ -691,6 +716,8 @@ def _run_grader_container(
     except Exception as e:
         result["check_verdict"] = "ERROR"
         result["error"] = str(e)
+    finally:
+        runner.cleanup_credential_tmps()
 
 
 def _run_grader_local(

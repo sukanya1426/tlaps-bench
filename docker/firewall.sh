@@ -25,14 +25,21 @@ iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
 iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT
 
 # Whitelist API hosts
+ACCEPT_COUNT=0
 IFS=',' read -ra HOSTS <<< "$FIREWALL_HOSTS"
 for host in "${HOSTS[@]}"; do
     host=$(echo "$host" | xargs)  # trim whitespace
     for ip in $(dig +short "$host" 2>/dev/null | grep -E '^[0-9]'); do
         iptables -A OUTPUT -d "$ip" -p tcp --dport 443 -j ACCEPT
         echo "[firewall] Allowed: $host -> $ip"
+        ACCEPT_COUNT=$((ACCEPT_COUNT + 1))
     done
 done
+
+if [ "$ACCEPT_COUNT" -eq 0 ]; then
+    echo "[firewall] ERROR: no ACCEPT rules installed (DNS resolution failed for all hosts)" >&2
+    exit 1
+fi
 
 # Block all IPv6
 ip6tables -P OUTPUT DROP 2>/dev/null || true
