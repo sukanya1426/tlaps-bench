@@ -18,8 +18,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from common.container import ContainerConfig, ContainerRunner, forward_env
 from evaluator.backends.litellm import LiteLLMBackend
-from evaluator.container import ContainerConfig, ContainerRunner, forward_env
 from evaluator.levels import get_level
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -116,13 +116,9 @@ def test_container_litellm_e2e():
             env=forward_env(backend.env_keys, model=backend.model),
             firewall_hosts=backend.firewall_hosts(),
             install_script=backend.install_script,
-            user_id=os.getuid(),
-            group_id=os.getgid(),
         )
 
-        exit_code, stdout, stderr = runner.run_with_output(
-            config, cmd, stdin_data=prompt, timeout=180
-        )
+        exit_code, stdout, stderr = runner.run_with_output(config, cmd, stdin_data=prompt, timeout=180)
 
         # Save agent output
         agent_jsonl = os.path.join(agent_dir, "output.jsonl")
@@ -155,7 +151,10 @@ def test_container_litellm_e2e():
         # Grade on host
         check_result_path = os.path.join(grading_dir, "check.result")
         check_cmd = level.checker_command(
-            workspace, basename, check_result_path, 300,
+            workspace,
+            basename,
+            check_result_path,
+            300,
             benchmark_dir=os.path.dirname(BENCHMARK_FILE),
         )
         check_env = dict(os.environ)

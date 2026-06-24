@@ -11,6 +11,9 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
+IMAGE_TAG = "tlaps-bench-base"
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
 # All provider API keys to auto-forward from host into containers.
 # Sourced from litellm provider source code (llms/<provider>/).
 API_KEY_VARS = [
@@ -271,18 +274,13 @@ class ContainerRunner:
         )
         return result.returncode == 0
 
-    def run_preflight(
-        self, config: ContainerConfig, backend_name: str, install_script: str | None = None
-    ) -> None:
+    def run_preflight(self, config: ContainerConfig, backend_name: str, install_script: str | None = None) -> None:
         """Run the backend's preflight check inside a container.
 
         Installs the CLI, then calls the backend's run_preflight() to validate
         model + credentials with a minimal API call. Fails fast on error.
         """
-        check_cmd = (
-            f"python3 -c "
-            f"'from evaluator.backends.{backend_name} import run_preflight; run_preflight()'"
-        )
+        check_cmd = f"python3 -c 'from evaluator.backends.{backend_name} import run_preflight; run_preflight()'"
         if install_script:
             check_cmd = f"/opt/install-scripts/{install_script} > /dev/null 2>&1 && {check_cmd}"
 
@@ -298,9 +296,7 @@ class ContainerRunner:
         )
         if result.returncode != 0:
             output = (result.stdout or result.stderr or "").strip()
-            raise RuntimeError(
-                f"❌ Preflight failed for '{backend_name}' (exit {result.returncode}):\n{output}"
-            )
+            raise RuntimeError(f"❌ Preflight failed for '{backend_name}' (exit {result.returncode}):\n{output}")
         print(f"✅ Preflight passed for '{backend_name}'")
 
 
@@ -326,3 +322,14 @@ def forward_env(backend_keys: list[str], model: str | None = None) -> dict[str, 
         env["AGENT_MODEL_ID"] = model
 
     return env
+
+
+def ensure_image(force: bool = False) -> None:
+    """Build the Docker image if missing or forced."""
+    if force or not ContainerRunner.image_exists(IMAGE_TAG):
+        dockerfile = os.path.join(_REPO_ROOT, "docker", "base.Dockerfile")
+        if force:
+            print("Building Docker image (--force-build)...")
+        else:
+            print("Docker image not found, building...")
+        ContainerRunner.build_image(dockerfile, IMAGE_TAG, _REPO_ROOT)

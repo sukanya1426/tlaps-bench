@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
-from evaluator.container import ContainerConfig, ContainerRunner, forward_env
+from common.container import ContainerConfig, ContainerRunner, forward_env
 
 
 class TestBuildDockerArgs:
@@ -72,7 +72,6 @@ class TestBuildDockerArgs:
         args, _ = runner.build_docker_args(config)
 
         assert args[-1] == "my-image:v1"
-
 
 
 class TestBuildCompositeCommand:

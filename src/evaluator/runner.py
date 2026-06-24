@@ -29,9 +29,9 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 
+from common.container import ContainerConfig, ContainerRunner, ensure_image, forward_env
 from evaluator.backends import get_backend, list_backends
 from evaluator.backends.base import AgentBackend
-from evaluator.container import ContainerConfig, ContainerRunner, forward_env
 from evaluator.levels import get_level, list_levels
 from evaluator.levels.base import Level
 
@@ -671,9 +671,7 @@ def _run_grader_container(
         result_dir=grading_dir,
     )
     try:
-        exit_code, stdout, stderr = runner.run_with_output(
-            config, check_cmd, timeout=item.check_timeout + 60
-        )
+        exit_code, stdout, stderr = runner.run_with_output(config, check_cmd, timeout=item.check_timeout + 60)
         with open(os.path.join(grading_dir, "check_debug.txt"), "w") as dbg:
             dbg.write(f"exit code: {exit_code}\n")
             dbg.write(f"stdout:\n{stdout}\n")
@@ -758,7 +756,10 @@ def main():
     parser.add_argument("--jobs", type=int, default=1, help="Parallel agent runs")
     parser.add_argument("--filter", default=None, help="Only run benchmarks matching pattern")
     parser.add_argument(
-        "--timeout", type=int, default=28800, help="Agent timeout per benchmark in seconds (default: 28800 = 8h; 0 = no limit)"
+        "--timeout",
+        type=int,
+        default=28800,
+        help="Agent timeout per benchmark in seconds (default: 28800 = 8h; 0 = no limit)",
     )
     parser.add_argument(
         "--check-timeout", type=int, default=600, help="Checker timeout per benchmark in seconds (default: 600)"
@@ -821,13 +822,7 @@ def main():
         checker_binary = os.path.join(REPO_ROOT, "check_proof_bin")
         level = get_level(args.level, benchmark_root, checker_binary)
 
-        dockerfile = os.path.join(REPO_ROOT, "docker", "base.Dockerfile")
-        if args.force_build:
-            print("Building Docker image (--force-build)...")
-            ContainerRunner.build_image(dockerfile, "tlaps-bench-base", REPO_ROOT)
-        elif not ContainerRunner.image_exists("tlaps-bench-base"):
-            print("Docker image 'tlaps-bench-base' not found. Building...")
-            ContainerRunner.build_image(dockerfile, "tlaps-bench-base", REPO_ROOT)
+        ensure_image(force=args.force_build)
         print("Container mode: ON (image: tlaps-bench-base)")
 
         # Preflight: validate install + auth inside container
