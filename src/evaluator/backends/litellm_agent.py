@@ -146,7 +146,14 @@ def main() -> None:
         # Execute tool calls
         for tc in tool_calls:
             fn_name = tc.function.name
-            fn_args = json.loads(tc.function.arguments)
+            try:
+                fn_args = json.loads(tc.function.arguments)
+            except (json.JSONDecodeError, TypeError):
+                fn_args = {}
+                err_result = f"ERROR: malformed JSON in tool arguments: {tc.function.arguments[:200]}"
+                print(json.dumps({"type": "tool_result", "name": fn_name, "result": err_result, "iteration": i}))
+                messages.append({"role": "tool", "tool_call_id": tc.id, "content": err_result})
+                continue
             print(json.dumps({"type": "tool_call", "name": fn_name, "args": fn_args, "iteration": i}))
             result = exec_tool(fn_name, fn_args, args.workspace)
             print(json.dumps({"type": "tool_result", "name": fn_name, "result": result[:2000], "iteration": i}))

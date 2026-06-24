@@ -34,6 +34,9 @@ for host in "${HOSTS[@]}"; do
     done
 done
 
+# Block all IPv6
+ip6tables -P OUTPUT DROP 2>/dev/null || true
+
 # Drop everything else
 iptables -A OUTPUT -j DROP
 echo "[firewall] Active: only ${FIREWALL_HOSTS} allowed"

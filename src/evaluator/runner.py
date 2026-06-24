@@ -18,6 +18,7 @@ import contextlib
 import json
 import os
 import re
+import select
 import shlex
 import shutil
 import signal
@@ -520,7 +521,7 @@ def _run_agent_container(
 
     config = ContainerConfig(
         workspace=workspace,
-        result_dir=os.path.dirname(agent_dir),  # parent of agent/ = result_dir
+        result_dir=agent_dir,  # mount only agent/ subdir as /results
         env=forward_env(backend.env_keys, model=getattr(backend, "model", None)),
         firewall_hosts=backend.firewall_hosts(),
         install_script=backend.install_script,
@@ -537,15 +538,20 @@ def _run_agent_container(
         with open(agent_jsonl, "w") as jsonl_f:
             deadline = (time.time() + timeout) if timeout else None
             while True:
-                line = proc.stdout.readline()
-                if not line and proc.poll() is not None:
+                # Poll with 5s timeout so deadline is checked even if agent hangs
+                ready, _, _ = select.select([proc.stdout], [], [], 5.0)
+                if ready:
+                    line = proc.stdout.readline()
+                    if not line and proc.poll() is not None:
+                        break
+                    if line:
+                        jsonl_f.write(line)
+                        jsonl_f.flush()
+                        if STREAM_AGENT_OUTPUT:
+                            sys.stdout.write(line)
+                            sys.stdout.flush()
+                elif proc.poll() is not None:
                     break
-                if line:
-                    jsonl_f.write(line)
-                    jsonl_f.flush()
-                    if STREAM_AGENT_OUTPUT:
-                        sys.stdout.write(line)
-                        sys.stdout.flush()
                 if deadline and time.time() > deadline:
                     runner.kill(container_run)
                     result["agent_exit"] = -1

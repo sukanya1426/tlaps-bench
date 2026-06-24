@@ -10,7 +10,7 @@ import litellm
 
 from .base import AgentBackend, detect_firewall_hosts
 
-DEFAULT_MODEL = "gpt-5.5"
+DEFAULT_MODEL = "claude-sonnet-4-6"
 
 
 class LiteLLMBackend(AgentBackend):
