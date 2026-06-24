@@ -15,9 +15,15 @@ DEFAULT_MODEL = "claude-opus-4.8"
 class CopilotBackend(AgentBackend):
     name = "copilot"
     install_script = "install-copilot.sh"
-    env_keys = ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN",
-                 "COPILOT_PROVIDER_BASE_URL", "COPILOT_PROVIDER_API_KEY", "COPILOT_PROVIDER_TYPE",
-                 "COPILOT_MODEL"]
+    env_keys = [
+        "COPILOT_GITHUB_TOKEN",
+        "GH_TOKEN",
+        "GITHUB_TOKEN",
+        "COPILOT_PROVIDER_BASE_URL",
+        "COPILOT_PROVIDER_API_KEY",
+        "COPILOT_PROVIDER_TYPE",
+        "COPILOT_MODEL",
+    ]
 
     def __init__(self, model: str | None = None):
         self.model = model or DEFAULT_MODEL
@@ -186,9 +192,20 @@ class CopilotBackend(AgentBackend):
 def run_preflight() -> None:
     """Validate model + credentials by making a minimal Copilot CLI call."""
     r = subprocess.run(
-        ["copilot", "--allow-all", "--disable-builtin-mcps", "--no-color",
-         "--no-auto-update", "--output-format", "text", "-p", "ok"],
-        capture_output=True, text=True, timeout=60,
+        [
+            "copilot",
+            "--allow-all",
+            "--disable-builtin-mcps",
+            "--no-color",
+            "--no-auto-update",
+            "--output-format",
+            "text",
+            "-p",
+            "ok",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
     if r.returncode:
         print(r.stdout or r.stderr)

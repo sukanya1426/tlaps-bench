@@ -96,7 +96,9 @@ def test_from_tlacheck_buckets_vectors():
 
 
 def test_from_tlacheck_clean_result_passes():
-    inp = from_tlacheck(_result(), tlapm_obligations_proved=True, n_missing=0, sany_valid=True, graded_on_canonical=True)
+    inp = from_tlacheck(
+        _result(), tlapm_obligations_proved=True, n_missing=0, sany_valid=True, graded_on_canonical=True
+    )
     assert grade(inp).passed
 
 

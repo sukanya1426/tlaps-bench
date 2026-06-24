@@ -72,10 +72,16 @@ class TestValidateInDocker:
         """Validate a single known-good benchmark (source proof should verify)."""
         result = subprocess.run(
             [
-                "uv", "run", "tlaps-bench", "validate",
-                "--filter", "SimpleAllocator_proof_TypeCorrect",
-                "--jobs", "1",
-                "--timeout", "120",
+                "uv",
+                "run",
+                "tlaps-bench",
+                "validate",
+                "--filter",
+                "SimpleAllocator_proof_TypeCorrect",
+                "--jobs",
+                "1",
+                "--timeout",
+                "120",
             ],
             capture_output=True,
             text=True,

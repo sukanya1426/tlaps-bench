@@ -8,7 +8,6 @@ Run: uv run python -m pytest tests/common/test_docker_commands.py -v
 import os
 import subprocess
 import sys
-import tempfile
 from unittest.mock import patch
 
 import pytest

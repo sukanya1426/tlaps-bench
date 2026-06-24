@@ -132,9 +132,19 @@ def run_preflight() -> None:
 
     m = os.environ.get("AGENT_MODEL_ID", "gpt-5.5").split("/")[-1]
     r = subprocess.run(
-        ["codex", "exec", "--model", m, "--dangerously-bypass-approvals-and-sandbox",
-         "--skip-git-repo-check", "--", "say ok"],
-        capture_output=True, text=True, timeout=60,
+        [
+            "codex",
+            "exec",
+            "--model",
+            m,
+            "--dangerously-bypass-approvals-and-sandbox",
+            "--skip-git-repo-check",
+            "--",
+            "say ok",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
     if r.returncode:
         print(r.stdout or r.stderr)

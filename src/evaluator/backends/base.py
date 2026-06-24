@@ -21,15 +21,19 @@ VERTEX_HOSTS = [
 ]
 
 # All known LLM API hosts. Safe to allow all together since the general internal is still blocked (Google, GitHub etc.)
-ALL_API_HOSTS = [
-    "api.openai.com",
-    "api.anthropic.com",
-    "generativelanguage.googleapis.com",
-    "api.deepseek.com",
-    "api.githubcopilot.com",
-    "api.business.githubcopilot.com",
-    "api.enterprise.githubcopilot.com",
-] + BEDROCK_HOSTS + VERTEX_HOSTS
+ALL_API_HOSTS = (
+    [
+        "api.openai.com",
+        "api.anthropic.com",
+        "generativelanguage.googleapis.com",
+        "api.deepseek.com",
+        "api.githubcopilot.com",
+        "api.business.githubcopilot.com",
+        "api.enterprise.githubcopilot.com",
+    ]
+    + BEDROCK_HOSTS
+    + VERTEX_HOSTS
+)
 
 
 def detect_firewall_hosts(model: str) -> list[str]:

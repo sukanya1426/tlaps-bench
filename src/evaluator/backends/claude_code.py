@@ -204,7 +204,10 @@ def run_preflight() -> None:
 
     r = subprocess.run(
         ["claude", "-p", "say ok", "--model", m, "--max-turns", "1"],
-        capture_output=True, text=True, timeout=60, env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
     )
     if r.returncode:
         print(r.stdout or r.stderr)
