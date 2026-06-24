@@ -20,7 +20,7 @@ VERTEX_HOSTS = [
     "europe-west1-aiplatform.googleapis.com",
 ]
 
-# All known LLM API hosts. Safe to allow all together since the general internal is still blocked (Google, GitHub etc.)
+# All known LLM API hosts. Safe to allow all together since the general internet is still blocked (Google, GitHub etc.)
 ALL_API_HOSTS = (
     [
         "api.openai.com",

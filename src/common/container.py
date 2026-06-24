@@ -173,7 +173,7 @@ class ContainerRunner:
         if install_script:
             parts.append(f"/opt/install-scripts/{install_script} >&2")
         parts.append("/opt/firewall.sh >&2 || true")
-        parts.append(f"exec {agent_cmd}")
+        parts.append(f"exec capsh --drop=cap_net_admin -- -c {shlex.quote(agent_cmd)}")
         return " && ".join(parts)
 
     def run(self, config: ContainerConfig, cmd: list[str], stdin_data: str | None = None) -> ContainerRun:

@@ -30,7 +30,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     curl ca-certificates git python3 python3-pip \
     libstdc++6 libgmp10 make \
     default-jdk-headless \
-    iptables iproute2 dnsutils
+    iptables iproute2 dnsutils libcap2-bin
 
 # Layer 2: Node.js (rarely changes)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
