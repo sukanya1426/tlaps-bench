@@ -87,8 +87,8 @@ class ContainerConfig:
     firewall_hosts: list[str] = field(default_factory=list)
     install_script: str | None = None  # run at container start before agent cmd
     cap_net_admin: bool = True
-    memory: str = "8g"
-    cpus: float = 4.0
+    memory: str = ""
+    cpus: float = 0
 
 
 @dataclass
@@ -113,9 +113,12 @@ class ContainerRunner:
             "--init",
             "-i",
             f"--cidfile={cid_file}",
-            f"--cpus={config.cpus}",
-            f"--memory={config.memory}",
         ]
+
+        if config.cpus:
+            args.append(f"--cpus={config.cpus}")
+        if config.memory:
+            args.append(f"--memory={config.memory}")
 
         if config.cap_net_admin and config.firewall_hosts:
             args.append("--cap-add=NET_ADMIN")
