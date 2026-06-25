@@ -30,6 +30,8 @@ class CodexBackend(AgentBackend):
             workspace,
             "-m",
             self.model,
+            "-c",
+            "web_search=disabled",
             "--json",
             "-o",
             last_msg_path,

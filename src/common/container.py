@@ -85,6 +85,7 @@ class ContainerConfig:
     image: str = "tlaps-bench-base:latest"
     workspace: str = ""  # host path, mounted to /workspace (rw)
     result_dir: str = ""  # host path, mounted to /results (rw)
+    benchmark_dir: str = ""  # host path, mounted to /benchmark (ro) for tamper-proof baseline
     env: dict[str, str] = field(default_factory=dict)
     firewall_hosts: list[str] = field(default_factory=list)
     install_script: str | None = None  # run at container start before agent cmd
@@ -132,6 +133,8 @@ class ContainerRunner:
             args.extend(["-v", f"{config.workspace}:/workspace:rw"])
         if config.result_dir:
             args.extend(["-v", f"{config.result_dir}:/results:rw"])
+        if config.benchmark_dir:
+            args.extend(["-v", f"{config.benchmark_dir}:/benchmark:ro"])
 
         # tlapm is baked into the image at /opt/tlapm
 

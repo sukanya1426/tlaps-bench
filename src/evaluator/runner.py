@@ -694,12 +694,13 @@ def _run_grader_container(
         basename,
         "/results/check.result",
         item.check_timeout,
-        benchmark_dir=None,  # let git-root reconstruction provide the pristine baseline
+        benchmark_dir="/benchmark",  # tamper-proof read-only mount
     )
     level._checker_binary = old_binary
     config = ContainerConfig(
         workspace=workspace,
         result_dir=grading_dir,
+        benchmark_dir=os.path.dirname(item.benchmark_path),
     )
     config.env["GIT_CONFIG_COUNT"] = "1"
     config.env["GIT_CONFIG_KEY_0"] = "safe.directory"

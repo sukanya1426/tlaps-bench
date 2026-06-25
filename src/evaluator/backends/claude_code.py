@@ -27,7 +27,6 @@ class ClaudeCodeBackend(AgentBackend):
         "Glob",
         "Grep",
         "LS",
-        "WebFetch",
         "NotebookEdit",
         "NotebookRead",
         "TodoRead",
@@ -36,7 +35,6 @@ class ClaudeCodeBackend(AgentBackend):
         "Skill",
         "SlashCommand",
         "Task",
-        "WebSearch",
     ]
 
     def __init__(self, model: str | None = None):

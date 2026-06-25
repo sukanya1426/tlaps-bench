@@ -67,6 +67,14 @@ class TestBuildDockerArgs:
         env_args = [args[i + 1] for i, a in enumerate(args) if a == "-e"]
         assert "DISABLE_FIREWALL=1" in env_args
 
+    def test_benchmark_dir_mount_ro(self):
+        runner = ContainerRunner()
+        config = ContainerConfig(benchmark_dir="/tmp/bench")
+        args, _ = runner.build_docker_args(config)
+
+        mount_args = [args[i + 1] for i, a in enumerate(args) if a == "-v"]
+        assert "/tmp/bench:/benchmark:ro" in mount_args
+
     def test_image_at_end(self):
         runner = ContainerRunner()
         config = ContainerConfig(image="my-image:v1")

@@ -60,6 +60,8 @@ class CopilotBackend(AgentBackend):
             "--disable-builtin-mcps",
             "--no-custom-instructions",
             "--no-auto-update",
+            "--excluded-tools",
+            "web_fetch",
         ]
 
     def check_auth(self) -> str | None:
