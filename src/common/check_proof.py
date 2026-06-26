@@ -817,7 +817,7 @@ def main():
     # The gate framework (src/tlacheck/gates.py) is the authoritative grader:
     # PASS iff identity AND discharge AND trust. "Cheating" is NOT a separate verdict
     # — it is just a gate failing, so the outcome is binary PASS / FAIL.
-    grade_passed, grade_reasons, grade_gates = True, [], []
+    grade_passed, grade_reasons, grade_gates, grade_cheat_checks = True, [], [], []
     try:
         from tlacheck.gates import from_tlacheck, grade
 
@@ -833,6 +833,9 @@ def main():
         )
         grade_passed, grade_reasons = _gr.passed, _gr.reasons
         grade_gates = [g.value for g in _gr.failed_gates()]
+        # Failing integrity checks (tamper/admit) distinguish a cheat from an
+        # honest incomplete proof — surfaced as a marker for the runner's report.
+        grade_cheat_checks = _gr.failed_integrity_checks()
     except Exception as e:  # never let the grader crash the check
         grade_reasons = [f"gate framework unavailable ({e}); fell back to legacy verdict"]
         grade_passed = None  # signal: use legacy verdict alone
@@ -856,6 +859,8 @@ def main():
             emit(f"    {SANY_INVALID_MARKER} {sany_detail[:200]}")
         if grade_gates:
             emit(f"  GATES-FAILED: {','.join(grade_gates)}")
+        if grade_cheat_checks:
+            emit(f"  CHEAT-DETECTED: {','.join(grade_cheat_checks)}")
         if grade_passed and not legacy_pass:
             emit("  FAIL: legacy safety-net flagged a failure the gates missed — investigate divergence")
 
