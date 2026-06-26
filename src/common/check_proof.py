@@ -562,10 +562,18 @@ def main():
         "tla2sany and exit (0 valid, 1 invalid) WITHOUT running tlapm. For quick "
         "syntax feedback while writing a proof — the full check applies the same gate.",
     )
-    parser.add_argument(
+    # Container vs. host. Default is auto: use the local toolchain when a tlapm
+    # is installed, else fall back to Docker. These two flags force either side.
+    container_group = parser.add_mutually_exclusive_group()
+    container_group.add_argument(
         "--no-container",
         action="store_true",
-        help="Run tlapm on host instead of Docker (requires local tlapm installation)",
+        help="Force running tlapm on the host, never Docker (requires a local tlapm installation)",
+    )
+    container_group.add_argument(
+        "--container",
+        action="store_true",
+        help="Force running inside Docker even when a local tlapm is installed",
     )
     parser.add_argument(
         "--force-build",
@@ -579,8 +587,13 @@ def main():
         print(f"ERROR: File not found: {filepath}")
         sys.exit(3)
 
-    # Default: run in Docker. --no-container or TLAPS_IN_CONTAINER=1 runs locally.
-    if not args.no_container and not os.environ.get("TLAPS_IN_CONTAINER"):
+    # Container vs. local: prefer the local toolchain when it is there, so a
+    # native setup (and the integration tests, and a hand-run) "just works"
+    # without flags; fall back to Docker only when no local tlapm is installed.
+    # Already inside a container (TLAPS_IN_CONTAINER, baked into the image) → always
+    # local, never nest. --no-container forces local; --container forces Docker.
+    in_container = bool(os.environ.get("TLAPS_IN_CONTAINER"))
+    if args.container or (not args.no_container and not in_container and find_tlapm() is None):
         _run_in_container(filepath, args)
 
     # Fast path: --sany-only skips tlapm and just reports whether the solution
