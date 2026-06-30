@@ -150,12 +150,49 @@ def claude_code_result_error(ctx: TerminationContext) -> Optional[str]:
     return None
 
 
+def copilot_session_error(ctx: TerminationContext) -> Optional[str]:
+    """copilot rule: the run did not reach a clean terminal.
+
+    The GitHub Copilot CLI ends a clean run with a terminal event — ``result``
+    (carrying ``exitCode``) on the stdout JSON stream, or ``session.shutdown``
+    with ``shutdownType: "routine"``. Infrastructure problems surface as a
+    ``session.error`` event (``errorType`` e.g. ``"authentication"`` /
+    ``"quota"``), an ``abort``, or ``session.shutdown`` with
+    ``shutdownType == "error"``.
+
+    We flag INFRA_ERROR only on a WHOLESALE failure — the run reached no clean
+    terminal event. An intermittent ``session.error`` the agent then recovered
+    from (followed by a clean terminal) is NOT flagged. A per-tool failure
+    (``tool.execution_complete`` with ``success: false`` — e.g. tlapm rejecting
+    a proof) and a non-zero ``result`` ``exitCode`` (the proof simply not
+    verifying) are normal parts of an attempt and never count. (Event vocabulary
+    per the Copilot SDK streaming-events docs; no recorded copilot runs yet to
+    validate against.)
+    """
+    if ctx.backend != "copilot":
+        return None
+    events = ctx.events()
+    if not events:
+        return None
+    reached_clean_terminal = False
+    for ev in events:
+        t = ev.get("type")
+        if t == "result":
+            reached_clean_terminal = True
+        elif t == "session.shutdown" and ev.get("shutdownType") != "error":
+            reached_clean_terminal = True
+    if reached_clean_terminal:
+        return None
+    return TerminationReason.INFRA_ERROR
+
+
 # Registry of INFRA_ERROR criteria. One rule per backend today; append more here
 # (other backends, or additional patterns for an existing one) — classify()
 # returns the first that fires. This list IS the extension point.
 INFRA_RULES: list[Rule] = [
     codex_turn_failed,
     claude_code_result_error,
+    copilot_session_error,
 ]
 
 

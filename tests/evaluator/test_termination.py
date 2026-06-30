@@ -19,6 +19,7 @@ from evaluator.termination import (
     claude_code_result_error,
     classify,
     codex_turn_failed,
+    copilot_session_error,
 )
 
 # codex stream cut short by a corrupted/refused request (no turn.completed).
@@ -101,6 +102,7 @@ def test_registry_is_the_extension_point():
     # The interface contract: classify() runs INFRA_RULES in order.
     assert codex_turn_failed in INFRA_RULES
     assert claude_code_result_error in INFRA_RULES
+    assert copilot_session_error in INFRA_RULES
 
 
 # --- claude_code rule -------------------------------------------------------
@@ -150,3 +152,80 @@ def test_cc_rule_only_applies_to_claude_code(tmp_path):
     # codex stream through the claude rule must abstain.
     p = _write_jsonl(tmp_path / "infra.jsonl", INFRA_STREAM)
     assert claude_code_result_error(_ctx(p, backend="codex")) is None
+
+
+# --- copilot rule (event vocabulary per Copilot SDK streaming-events docs) ---
+
+# A clean run: per-tool failure is normal (tlapm rejecting a proof), terminal
+# `result` with a non-zero exitCode is the proof failing — neither is infra.
+CP_COMPLETED = [
+    {"type": "assistant.message", "data": {"content": "hi"}},
+    {"type": "tool.execution_complete", "data": {"result": {"success": False}}},
+    {"type": "result", "exitCode": 1, "usage": {"premiumRequests": 1}},
+]
+CP_SESSION_ERROR = [  # dedicated infra error event (auth/quota/network)
+    {"type": "assistant.message", "data": {"content": "hi"}},
+    {"type": "session.error", "errorType": "quota", "message": "rate limited", "statusCode": 429},
+]
+CP_ABORT = [
+    {"type": "assistant.message", "data": {"content": "hi"}},
+    {"type": "abort"},
+]
+CP_SHUTDOWN_ERROR = [
+    {"type": "session.shutdown", "shutdownType": "error", "errorReason": "stream closed"},
+]
+CP_SHUTDOWN_OK = [
+    {"type": "session.shutdown", "shutdownType": "routine"},
+]
+CP_RECOVERED = [  # intermittent session.error, then recovered to a clean terminal
+    {"type": "assistant.message", "data": {"content": "hi"}},
+    {"type": "session.error", "errorType": "quota", "message": "transient 429"},
+    {"type": "assistant.message", "data": {"content": "retrying"}},
+    {"type": "result", "exitCode": 0, "usage": {"premiumRequests": 2}},
+]
+CP_TRUNCATED = [  # cut off before any terminal event
+    {"type": "assistant.message", "data": {"content": "working"}},
+    {"type": "tool.execution_start", "data": {}},
+]
+
+
+def test_copilot_completed_is_ok(tmp_path):
+    p = _write_jsonl(tmp_path / "done.jsonl", CP_COMPLETED)
+    assert classify(_ctx(p, backend="copilot")) == TerminationReason.OK
+
+
+def test_copilot_session_error_is_infra(tmp_path):
+    p = _write_jsonl(tmp_path / "serr.jsonl", CP_SESSION_ERROR)
+    assert classify(_ctx(p, backend="copilot")) == TerminationReason.INFRA_ERROR
+
+
+def test_copilot_abort_is_infra(tmp_path):
+    p = _write_jsonl(tmp_path / "abort.jsonl", CP_ABORT)
+    assert classify(_ctx(p, backend="copilot")) == TerminationReason.INFRA_ERROR
+
+
+def test_copilot_shutdown_error_is_infra(tmp_path):
+    p = _write_jsonl(tmp_path / "sd.jsonl", CP_SHUTDOWN_ERROR)
+    assert classify(_ctx(p, backend="copilot")) == TerminationReason.INFRA_ERROR
+
+
+def test_copilot_shutdown_routine_is_ok(tmp_path):
+    p = _write_jsonl(tmp_path / "sdok.jsonl", CP_SHUTDOWN_OK)
+    assert classify(_ctx(p, backend="copilot")) == TerminationReason.OK
+
+
+def test_copilot_recovered_session_error_is_ok(tmp_path):
+    # Only a WHOLESALE failure counts: a session.error the run recovered from
+    # (followed by a clean terminal) must NOT be flagged.
+    p = _write_jsonl(tmp_path / "recov.jsonl", CP_RECOVERED)
+    assert classify(_ctx(p, backend="copilot")) == TerminationReason.OK
+
+
+def test_copilot_truncated_is_infra(tmp_path):
+    p = _write_jsonl(tmp_path / "trunc.jsonl", CP_TRUNCATED)
+    assert classify(_ctx(p, backend="copilot")) == TerminationReason.INFRA_ERROR
+
+
+def test_copilot_rule_only_applies_to_copilot(tmp_path):
+    p = _write_jsonl(tmp_path / "trunc.jsonl", CP_TRUNCATED)
+    assert copilot_session_error(_ctx(p, backend="codex")) is None
