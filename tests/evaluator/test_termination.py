@@ -147,6 +147,24 @@ def test_registry_is_the_extension_point():
     assert copilot_session_error in INFRA_RULES
 
 
+# --- quota exhaustion: runner-owned, never produced by classify() -----------
+
+def test_quota_exhausted_is_a_distinct_reason():
+    # QUOTA_EXHAUSTED is its own category, distinct from OK/INFRA_ERROR/TIMEOUT.
+    reasons = {TerminationReason.OK, TerminationReason.INFRA_ERROR, TerminationReason.TIMEOUT}
+    assert TerminationReason.QUOTA_EXHAUSTED not in reasons
+
+
+def test_classify_never_returns_quota_exhausted(tmp_path):
+    # The runner sets QUOTA_EXHAUSTED directly (it owns the quota signal); no
+    # classify() rule may spontaneously produce it. A quota-blocked run leaves a
+    # no-work, truncated stream — classify() reads that as INFRA_ERROR/OK, never
+    # QUOTA_EXHAUSTED — which is exactly why the runner tags it before classify().
+    for backend, stream in TRUNCATED_BY_BACKEND.items():
+        p = _write_jsonl(tmp_path / f"{backend}.jsonl", stream)
+        assert classify(_ctx(p, backend=backend)) != TerminationReason.QUOTA_EXHAUSTED
+
+
 # --- claude_code rule -------------------------------------------------------
 
 # claude_code closes with a `result` event; subtype `success` vs `error_*`.

@@ -42,6 +42,13 @@ class TerminationReason:
     # LIMIT (the model was working), NOT infrastructure. Detected the same way
     # for every backend so they agree (see is_wall_clock_timeout / classify).
     TIMEOUT = "TIMEOUT"
+    # A provider hard usage cap stopped the run — the proactive gate exhausted
+    # its waits, or the reactive retry gave up. The agent did no genuine work;
+    # the run is retriable once the quota window resets. Backend-independent, so
+    # every backend agrees. Set directly by the runner (which owns the quota
+    # signal), not by a classify() rule — distinct from INFRA_ERROR (retry
+    # immediately) and TIMEOUT (out of time).
+    QUOTA_EXHAUSTED = "QUOTA_EXHAUSTED"
 
 
 @dataclass
