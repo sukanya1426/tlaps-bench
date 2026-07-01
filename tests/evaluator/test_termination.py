@@ -11,6 +11,7 @@ Run: PYTHONPATH=src python3 -m pytest tests/evaluator/test_termination.py
 """
 
 import json
+import os
 
 from evaluator.termination import (
     INFRA_RULES,
@@ -163,6 +164,87 @@ def test_classify_never_returns_quota_exhausted(tmp_path):
     for backend, stream in TRUNCATED_BY_BACKEND.items():
         p = _write_jsonl(tmp_path / f"{backend}.jsonl", stream)
         assert classify(_ctx(p, backend=backend)) != TerminationReason.QUOTA_EXHAUSTED
+
+
+# QUOTA_EXHAUSTED is the one reason the runner sets directly (not classify()), so
+# it's only covered by driving run_single_benchmark. Both quota paths short-
+# circuit before the AI agent / grader run, so stubbing the quota gate reaches
+# them without a real backend, tlapm, or API key.
+
+
+class _FakeBackend:
+    name = "codex"
+
+    def parse_output(self, jsonl_path):
+        return ("", 0, 0)  # transcript, input_tokens, output_tokens
+
+    def detect_quota_block(self, jsonl_path):
+        return None
+
+
+class _FakeMode:
+    name = "proof-completion"
+
+    def __init__(self, bench_dir):
+        self._bench_dir = bench_dir
+
+    def benchmark_dir(self):
+        return self._bench_dir
+
+    def get_dependencies(self, benchmark_path):
+        return []
+
+    def checker_binary_path(self):
+        return "/bin/true"
+
+    def build_prompt(self, basename, tlapm_path, tlapm_lib):
+        return "prove it"
+
+
+def _quota_work_item(tmp_path):
+    from evaluator.runner import WorkItem
+
+    bench_dir = tmp_path / "bench"
+    bench_path = bench_dir / "Foo" / "Bar.tla"
+    os.makedirs(bench_path.parent)
+    bench_path.write_text("---- MODULE Bar ----\n====\n")
+    return WorkItem(
+        benchmark_path=str(bench_path),
+        output_dir=str(tmp_path / "out"),
+        timeout=10,
+        check_timeout=10,
+        backend=_FakeBackend(),  # ty:ignore[invalid-argument-type]
+        mode=_FakeMode(str(bench_dir)),  # ty:ignore[invalid-argument-type]
+        tlapm_path="/bin/true",
+        tlapm_lib="",
+        usage_script="dummy",  # enables the quota gate
+        quota_max_waits=1,
+    )
+
+
+def test_runner_prerun_quota_skip_tags_quota_exhausted(tmp_path, monkeypatch):
+    # Proactive gate gives up before the agent runs (max waits reached): the
+    # early return must carry QUOTA_EXHAUSTED, not the seeded OK default.
+    from evaluator import runner
+
+    monkeypatch.setattr(runner.quota, "wait_for_quota", lambda *a, **k: False)
+    result = runner.run_single_benchmark(_quota_work_item(tmp_path))
+    assert result["agent_exit"] == -3
+    assert result["termination_reason"] == TerminationReason.QUOTA_EXHAUSTED
+
+
+def test_runner_duringrun_quota_exhausted_tags_quota_exhausted(tmp_path, monkeypatch):
+    # Agent runs, then the provider hard-caps us and the retry budget is spent:
+    # run_with_quota_retry returns falsy -> quota_exhausted block (agent never
+    # actually invoked, grading skipped).
+    from evaluator import runner
+
+    monkeypatch.setattr(runner.quota, "wait_for_quota", lambda *a, **k: True)
+    monkeypatch.setattr(runner.quota, "run_with_quota_retry", lambda run, block, **k: False)
+    result = runner.run_single_benchmark(_quota_work_item(tmp_path))
+    assert result["agent_exit"] == -3
+    assert result["check_verdict"] == "ERROR"
+    assert result["termination_reason"] == TerminationReason.QUOTA_EXHAUSTED
 
 
 # --- claude_code rule -------------------------------------------------------
